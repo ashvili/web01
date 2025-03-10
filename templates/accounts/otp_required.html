@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Требуется двухфакторная аутентификация{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="auth-form">
+            <h2 class="form-title">Требуется двухфакторная аутентификация</h2>
+            
+            <div class="alert alert-warning">
+                <p>Для доступа к этой странице требуется полная аутентификация с использованием второго фактора.</p>
+            </div>
+            
+            <p>Вы вошли в систему, но для доступа к запрашиваемой странице необходимо пройти двухфакторную аутентификацию.</p>
+            
+            <div class="d-grid gap-2">
+                <a href="{% url 'accounts:login' %}" class="btn btn-primary">Пройти двухфакторную аутентификацию</a>
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">Вернуться на главную</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,92 @@
+/* Основные стили */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+}
+
+/* Стили для страниц авторизации */
+.auth-form {
+    max-width: 450px;
+    margin: 2rem auto;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+}
+
+.auth-form .form-title {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #0d6efd;
+}
+
+.auth-form .form-control {
+    padding: 0.75rem;
+}
+
+.auth-form .btn-primary {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.auth-form .auth-links {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+/* Стили для двухфакторной аутентификации */
+.token-form {
+    margin-top: 1.5rem;
+}
+
+.qr-code {
+    text-align: center;
+    margin: 1.5rem 0;
+}
+
+.backup-tokens {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+}
+
+.backup-tokens h4 {
+    margin-bottom: 1rem;
+}
+
+.backup-tokens-list {
+    font-family: monospace;
+    font-size: 1.1em;
+    padding-left: 1.5rem;
+}
+
+/* Стили для профиля пользователя */
+.profile-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 10px;
+    background-color: #f8f9fa;
+}
+
+.profile-section h4 {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Адаптивные стили */
+@media (max-width: 768px) {
+    .auth-form {
+        max-width: 100%;
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+} 

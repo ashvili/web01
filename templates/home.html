@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная - Система управления абонентами{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto text-center">
+        <h1 class="mb-4">Система управления абонентами</h1>
+        
+        {% if user.is_authenticated %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Добро пожаловать, {{ user.get_full_name|default:user.username }}!</h5>
+                <p class="card-text">Вы успешно авторизованы в системе.</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{% url 'subscribers:list' %}" class="btn btn-primary">Перейти к списку абонентов</a>
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">Профиль</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Добро пожаловать в систему управления абонентами!</h5>
+                <p class="card-text">Для доступа к функциям системы необходимо авторизоваться.</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{% url 'accounts:login' %}" class="btn btn-primary">Войти в систему</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Управление абонентами</h5>
+                        <p class="card-text">Просмотр, поиск и редактирование данных абонентов.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Импорт данных</h5>
+                        <p class="card-text">Загрузка данных из CSV-файлов с версионированием.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Безопасность</h5>
+                        <p class="card-text">Двухфакторная аутентификация и логирование действий.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
