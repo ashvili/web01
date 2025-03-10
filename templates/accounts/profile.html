@@ -90,10 +90,24 @@
                         <button type="submit" name="password_submit" class="btn btn-primary">Изменить пароль</button>
                     </form>
                     
-                    <div class="mt-4 d-none">
+                    <div class="mt-4">
                         <h5>Двухфакторная аутентификация</h5>
-                        <p>Статус: <span class="badge bg-success">Включена</span></p>
-                        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-primary">Управление 2FA</a>
+                        {% if user.totpdevice_set.exists %}
+                            <p>Статус: <span class="badge bg-success">Включена</span></p>
+                            <p class="text-muted mb-0">Для входа в систему вам требуется 6-значный код из приложения аутентификации.</p>
+                            <div class="mt-2">
+                                <form method="post" action="{% url 'accounts:disable_totp' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger">Отключить двухфакторную аутентификацию</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <p>Статус: <span class="badge bg-danger">Отключена</span></p>
+                            <p class="text-muted mb-0">Рекомендуем включить для повышения безопасности вашей учетной записи.</p>
+                            <div class="mt-2">
+                                <a href="{% url 'accounts:totp_setup' %}" class="btn btn-primary">Настроить 2FA</a>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

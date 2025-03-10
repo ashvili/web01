@@ -1,4 +1,4 @@
-{% load static %}
+{% load static widget_tweaks %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -44,12 +44,17 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">Профиль</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">Выход</a></li>
+                                <li>
+                                    <form action="{% url 'accounts:logout' %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">Выход</button>
+                                    </form>
+                                </li>
                             </ul>
                         </li>
                         {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login' %}">Вход</a>
+                            <a class="nav-link" href="{% url 'two_factor:login' %}">Вход</a>
                         </li>
                         {% endif %}
                     </ul>

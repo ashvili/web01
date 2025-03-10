@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from two_factor.urls import urlpatterns as tf_urls
 
 from accounts.views import HomeView
 
@@ -27,6 +28,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('subscribers/', include('subscribers.urls')),
     path('logs/', include('logs.urls')),
+    path('2fa/', include(tf_urls, namespace='two_factor')),  # Изменили префикс на /2fa/ чтобы избежать конфликтов
 ]
 
 # Добавляем статические файлы в режиме разработки

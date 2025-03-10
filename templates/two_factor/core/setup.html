@@ -1,0 +1,79 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block content_title %}{% trans "Настройка двухфакторной аутентификации" %}{% endblock %}
+
+{% block content_body %}
+  <p class="mb-4">{% blocktrans trimmed %}
+    Вы включаете двухфакторную аутентификацию для вашей учетной записи.
+    Это приведёт к тому, что при входе потребуется вводить не только пароль,
+    но и одноразовый код с вашего устройства.
+  {% endblocktrans %}</p>
+
+  <form method="post">{% csrf_token %}
+    {{ wizard.management_form }}
+    
+    {% if wizard.form.non_field_errors %}
+      <div class="alert alert-danger">
+        {% for error in wizard.form.non_field_errors %}
+          {{ error }}
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if wizard.form.errors %}
+      {% for field in wizard.form %}
+        {% for error in field.errors %}
+          <div class="alert alert-danger">
+            <strong>{{ field.label }}:</strong> {{ error }}
+          </div>
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+
+    {% for field in wizard.form %}
+      {% if field.is_hidden %}
+        {{ field }}
+      {% else %}
+        <div class="mb-3">
+          <label for="{{ field.id_for_label }}" class="form-label">
+            {{ field.label }}
+          </label>
+          <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                 name="{{ field.html_name }}" 
+                 id="{{ field.id_for_label }}" 
+                 value="{{ field.value|default:'' }}" 
+                 class="form-control"
+                 {% if field.field.required %}required{% endif %}>
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    <div class="mt-4 text-center">
+      <button class="btn btn-primary btn-lg px-4 py-2 rounded-3" type="submit">
+        {% if wizard.steps.current == 'generator' %}
+          {% trans "Подтвердить" %}
+        {% else %}
+          {% trans "Далее" %}
+        {% endif %}
+      </button>
+    </div>
+  </form>
+
+  {% if qr_url %}
+    <div class="text-center mt-4">
+      <div class="card border-0 shadow-sm mx-auto" style="max-width: 320px;">
+        <div class="card-body">
+          <h5 class="card-title mb-3">{% trans "Сканируйте QR-код" %}</h5>
+          <img src="{{ qr_url }}" alt="QR-код для настройки" class="img-fluid mb-3" style="max-width: 220px;">
+          <p class="card-text text-muted mb-1">{% trans "или введите ключ вручную:" %}</p>
+          <p class="card-text"><code class="bg-light p-2 rounded">{{ secret_key }}</code></p>
+        </div>
+      </div>
+      <p class="mt-3 text-muted small">{% trans "Используйте Google Authenticator, Microsoft Authenticator или другое TOTP-приложение" %}</p>
+    </div>
+  {% endif %}
+{% endblock %} 

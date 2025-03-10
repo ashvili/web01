@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n widget_tweaks %}
+
+{% block title %}{% block head_title %}{% trans "Двухфакторная аутентификация" %}{% endblock %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4>{% block content_title %}{% endblock %}</h4>
+            </div>
+            <div class="card-body">
+                {% block content_body %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

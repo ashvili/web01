@@ -6,18 +6,36 @@
 <div class="row">
     <div class="col-md-6 mx-auto">
         <div class="auth-form">
-            <h2 class="form-title">Требуется двухфакторная аутентификация</h2>
+            <h2 class="form-title">Двухфакторная аутентификация</h2>
             
-            <div class="alert alert-warning">
-                <p>Для доступа к этой странице требуется полная аутентификация с использованием второго фактора.</p>
+            <div class="alert alert-info">
+                <p>На ваш аккаунт настроена двухфакторная аутентификация. Пожалуйста, введите код из приложения аутентификации.</p>
             </div>
             
-            <p>Вы вошли в систему, но для доступа к запрашиваемой странице необходимо пройти двухфакторную аутентификацию.</p>
-            
-            <div class="d-grid gap-2">
-                <a href="{% url 'accounts:login' %}" class="btn btn-primary">Пройти двухфакторную аутентификацию</a>
-                <a href="{% url 'home' %}" class="btn btn-outline-secondary">Вернуться на главную</a>
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
             </div>
+            {% endif %}
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="token" class="form-label">Код из приложения</label>
+                    <input type="text" name="token" id="token" class="form-control form-control-lg text-center" autocomplete="off" autofocus maxlength="6" required>
+                    <div class="form-text">Введите 6-значный код из вашего приложения аутентификации</div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Подтвердить</button>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary">Вернуться к входу</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

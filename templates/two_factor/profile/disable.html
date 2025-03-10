@@ -1,0 +1,29 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block content_title %}{% trans "Отключение двухфакторной аутентификации" %}{% endblock %}
+
+{% block content_body %}
+  <div class="alert alert-warning mb-4">
+    <div class="d-flex">
+      <div class="me-3">
+        <i class="bi bi-exclamation-triangle-fill" style="font-size: 24px;"></i>
+      </div>
+      <div>
+        <h5 class="alert-heading">{% trans "Внимание!" %}</h5>
+        <p class="mb-0">{% blocktrans trimmed %}
+          Вы действительно хотите отключить двухфакторную аутентификацию?
+          Это снизит безопасность вашей учетной записи и сделает её более уязвимой для взлома.
+        {% endblocktrans %}</p>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" class="text-center">
+    {% csrf_token %}
+    <div class="d-flex justify-content-center gap-3 mt-4">
+      <button class="btn btn-danger px-4" type="submit">{% trans "Да, отключить" %}</button>
+      <a href="{% url 'two_factor:profile' %}" class="btn btn-outline-secondary px-4">{% trans "Отмена" %}</a>
+    </div>
+  </form>
+{% endblock %} 

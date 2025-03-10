@@ -16,6 +16,10 @@ class UserProfile(models.Model):
     items_per_page = models.PositiveIntegerField('Записей на странице', default=25)
     theme = models.CharField('Тема оформления', max_length=20, default='light')
     
+    # Двухфакторная аутентификация
+    totp_secret = models.CharField('Секрет TOTP', max_length=100, blank=True, null=True)
+    totp_enabled = models.BooleanField('2FA активирована', default=False)
+    
     # Разрешения
     can_import_data = models.BooleanField('Может импортировать данные', default=False)
     can_export_data = models.BooleanField('Может экспортировать данные', default=False)

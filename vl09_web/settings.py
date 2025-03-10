@@ -145,5 +145,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Настройки для авторизации
 LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'home'
+LOGIN_REDIRECT_URL = 'accounts:profile'
 LOGOUT_REDIRECT_URL = 'accounts:login'
+
+# Настройки для двухфакторной аутентификации
+TWO_FACTOR_LOGIN_URL = 'two_factor:login'  # URL для входа с двухфакторной аутентификацией
+
+# Настройки OTP
+OTP_TOTP_ISSUER = 'Система управления абонентами'
+
+# Дополнительные настройки для TOTP
+TWO_FACTOR_PATCH_ADMIN = False
+TWO_FACTOR_CALL_GATEWAY = None
+TWO_FACTOR_SMS_GATEWAY = None
+TWO_FACTOR_TOTP_DIGITS = 6
+
+# Настройка имени для приложения аутентификации
+OTP_ISSUER_NAME = 'Система управления абонентами'

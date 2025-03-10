@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Настройка двухфакторной аутентификации{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Настройка двухфакторной аутентификации</h4>
+            </div>
+            <div class="card-body">
+                <p class="mb-4">
+                    Вы включаете двухфакторную аутентификацию для вашей учетной записи.
+                    Это приведёт к тому, что при входе потребуется вводить не только пароль,
+                    но и одноразовый код с вашего устройства.
+                </p>
+
+                <div class="text-center mt-4">
+                    <div class="card border-0 shadow-sm mx-auto" style="max-width: 320px;">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Сканируйте QR-код</h5>
+                            <img src="{{ qr_url }}" alt="QR-код для настройки" class="img-fluid mb-3" style="max-width: 220px;">
+                            <p class="card-text text-muted mb-1">или введите ключ вручную:</p>
+                            <p class="card-text"><code class="bg-light p-2 rounded">{{ secret_key }}</code></p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-muted small">Используйте Google Authenticator, Microsoft Authenticator или другое TOTP-приложение</p>
+                </div>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="token" class="form-label">Введите код из приложения</label>
+                        <input type="text" name="token" id="token" class="form-control form-control-lg text-center" maxlength="6" required autocomplete="off">
+                        <div class="form-text">Введите 6-значный код, отображаемый в вашем приложении</div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-4 py-2 rounded-3">Подтвердить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

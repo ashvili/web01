@@ -1,0 +1,65 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block content_title %}{% trans "Управление двухфакторной аутентификацией" %}{% endblock %}
+
+{% block content_body %}
+  <div class="mb-4">
+    {% if user.totpdevice_set.exists %}
+      <div class="d-flex align-items-center mb-4">
+        <div class="rounded-circle bg-success d-flex align-items-center justify-content-center text-white me-3" style="width: 50px; height: 50px;">
+          <i class="bi bi-shield-check" style="font-size: 24px;"></i>
+        </div>
+        <div>
+          <h5 class="mb-1">{% trans "Двухфакторная аутентификация включена" %}</h5>
+          <p class="text-muted mb-0">{% trans "Ваша учетная запись защищена дополнительным уровнем безопасности" %}</p>
+        </div>
+      </div>
+      
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h6 class="card-title">{% trans "Как это работает?" %}</h6>
+          <p class="card-text">{% blocktrans trimmed %}
+            При входе в систему вам будет предложено ввести шестизначный код из вашего приложения
+            аутентификации (например, Google Authenticator, Microsoft Authenticator, Authy).
+            Это защищает вашу учетную запись даже если кто-то узнает ваш пароль.
+          {% endblocktrans %}</p>
+        </div>
+      </div>
+      
+      <a href="{% url 'two_factor:disable' %}" class="btn btn-outline-danger">
+        {% trans "Отключить двухфакторную аутентификацию" %}
+      </a>
+    {% else %}
+      <div class="d-flex align-items-center mb-4">
+        <div class="rounded-circle bg-danger d-flex align-items-center justify-content-center text-white me-3" style="width: 50px; height: 50px;">
+          <i class="bi bi-shield-exclamation" style="font-size: 24px;"></i>
+        </div>
+        <div>
+          <h5 class="mb-1">{% trans "Двухфакторная аутентификация отключена" %}</h5>
+          <p class="text-muted mb-0">{% trans "Рекомендуем включить для повышения безопасности" %}</p>
+        </div>
+      </div>
+      
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h6 class="card-title">{% trans "Почему это важно?" %}</h6>
+          <p class="card-text">{% blocktrans trimmed %}
+            Двухфакторная аутентификация обеспечивает дополнительный уровень защиты вашей учетной записи.
+            Даже если кто-то узнает ваш пароль, он не сможет получить доступ без кода из вашего приложения.
+          {% endblocktrans %}</p>
+        </div>
+      </div>
+      
+      <a href="{% url 'two_factor:setup' %}" class="btn btn-primary">
+        {% trans "Включить двухфакторную аутентификацию" %}
+      </a>
+    {% endif %}
+  </div>
+  
+  <div class="text-end mt-5">
+    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> {% trans "Вернуться в профиль" %}
+    </a>
+  </div>
+{% endblock %} 
