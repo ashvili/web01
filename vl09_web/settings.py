@@ -143,6 +143,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Настройки сообщений для Bootstrap
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+    messages.DEBUG: 'secondary',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+}
+
 # Настройки для авторизации
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'accounts:profile'

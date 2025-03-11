@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Детали импорта{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Детали импорта</h1>
+        <div>
+            <a href="{% url 'subscribers:import_history' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> К истории импорта
+            </a>
+            <a href="{% url 'subscribers:import_csv' %}" class="btn btn-primary ms-2">
+                <i class="bi bi-file-earmark-arrow-up"></i> Новый импорт
+            </a>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Информация об импорте</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Файл:</h6>
+                        <p class="mb-0">{{ import_history.file_name }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Дата импорта:</h6>
+                        <p class="mb-0">{{ import_history.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Пользователь:</h6>
+                        <p class="mb-0">{{ import_history.created_by.username }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Размер файла:</h6>
+                        <p class="mb-0">{{ import_history.file_size|filesizeformat }}</p>
+                    </div>
+                    
+                    {% if import_history.info_message %}
+                        <div class="alert alert-info mt-3">
+                            <h6 class="alert-heading">Информация об архивации</h6>
+                            <p class="mb-0">{{ import_history.info_message }}</p>
+                        </div>
+                    {% endif %}
+                    
+                    {% if import_history.error_message %}
+                        {% if "архивирована как" in import_history.error_message %}
+                            <div class="alert alert-info mt-3">
+                                <h6 class="alert-heading">Информация об архивации</h6>
+                                <p class="mb-0">
+                                    Предыдущая таблица абонентов была сохранена в архивную таблицу. 
+                                    При этом импорте все предыдущие данные были заменены новыми.
+                                </p>
+                                <p class="mb-0 mt-2">
+                                    <small class="text-muted">Имя архивной таблицы: {{ import_history.archive_table_name }}</small>
+                                </p>
+                            </div>
+                        {% elif "Сохранено последних архивных таблиц" in import_history.error_message %}
+                            <div class="alert alert-info mt-3">
+                                <h6 class="alert-heading">Информация об архивации</h6>
+                                <p class="mb-0">{{ import_history.error_message }}</p>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger mt-3">
+                                <h6 class="alert-heading">Сообщение об ошибке</h6>
+                                <p class="mb-0">{{ import_history.error_message }}</p>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Статистика</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Статус</h6>
+                                    {% if import_history.status == 'completed' %}
+                                        <span class="badge bg-success fs-6">Завершено</span>
+                                    {% elif import_history.status == 'processing' %}
+                                        <span class="badge bg-warning text-dark fs-6">В обработке</span>
+                                    {% else %}
+                                        <span class="badge bg-danger fs-6">Ошибка</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Всего записей</h6>
+                                    <span class="fs-4">{{ import_history.records_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Создано</h6>
+                                    <span class="fs-4 text-success">{{ import_history.records_created }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Ошибок</h6>
+                                    <span class="fs-4 {% if import_history.records_failed > 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {{ import_history.records_failed }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if import_history.records_failed > 0 %}
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <h6 class="alert-heading">Ошибки импорта</h6>
+                            <p>Не удалось импортировать {{ import_history.records_failed }} записей.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if subscribers_page %}
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">Импортированные абоненты</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Номер</th>
+                                <th>Фамилия</th>
+                                <th>Имя</th>
+                                <th>Отчество</th>
+                                <th>Дата рождения</th>
+                                <th>IMSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subscriber in subscribers_page %}
+                                <tr>
+                                    <td>{{ subscriber.original_id }}</td>
+                                    <td>{{ subscriber.number }}</td>
+                                    <td>{{ subscriber.last_name }}</td>
+                                    <td>{{ subscriber.first_name }}</td>
+                                    <td>{{ subscriber.middle_name|default:"-" }}</td>
+                                    <td>{{ subscriber.birth_date|date:"d.m.Y"|default:"-" }}</td>
+                                    <td>{{ subscriber.imsi|default:"-" }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            {% if subscribers_page.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Навигация по абонентам">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if subscribers_page.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1" aria-label="Первая">
+                                        <span aria-hidden="true">&laquo;&laquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ subscribers_page.previous_page_number }}" aria-label="Предыдущая">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Первая">
+                                        <span aria-hidden="true">&laquo;&laquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Предыдущая">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in subscribers_page.paginator.page_range %}
+                                {% if subscribers_page.number == num %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% elif num > subscribers_page.number|add:'-3' and num < subscribers_page.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if subscribers_page.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ subscribers_page.next_page_number }}" aria-label="Следующая">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ subscribers_page.paginator.num_pages }}" aria-label="Последняя">
+                                        <span aria-hidden="true">&raquo;&raquo;</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Следующая">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Последняя">
+                                        <span aria-hidden="true">&raquo;&raquo;</span>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <h4 class="alert-heading">Нет импортированных абонентов</h4>
+            <p class="mb-0">В данном импорте не найдено ни одной записи абонентов.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

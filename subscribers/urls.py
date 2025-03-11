@@ -1,11 +1,19 @@
 from django.urls import path
-from django.views.generic import TemplateView
+from . import views
 
 app_name = 'subscribers'
 
 urlpatterns = [
-    # Временная заглушка для списка абонентов
-    path('', TemplateView.as_view(template_name='subscribers/list.html'), name='list'),
-    # Временная заглушка для импорта данных
-    path('import/', TemplateView.as_view(template_name='subscribers/import.html'), name='import'),
+    # Список абонентов
+    path('', views.subscriber_list, name='list'),
+    
+    # Импорт данных из CSV
+    path('import/', views.import_csv, name='import_csv'),
+    
+    # История импорта
+    path('import/history/', views.import_history, name='import_history'),
+    
+    # Детали импорта
+    path('import/history/<int:import_id>/', views.import_detail, name='import_detail'),
+    path('import/cleanup-archives/', views.cleanup_archives, name='cleanup_archives'),
 ] 

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Импорт абонентов из CSV{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Импорт абонентов из CSV</h1>
+        <div>
+            <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> К списку абонентов
+            </a>
+            <a href="{% url 'subscribers:import_history' %}" class="btn btn-outline-primary ms-2">
+                <i class="bi bi-clock-history"></i> История импорта
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Загрузка файла CSV</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.csv_file.id_for_label }}" class="form-label">{{ form.csv_file.label }}</label>
+                            {{ form.csv_file }}
+                            <div class="form-text">{{ form.csv_file.help_text }}</div>
+                            {% if form.csv_file.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.csv_file.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.delimiter.id_for_label }}" class="form-label">{{ form.delimiter.label }}</label>
+                                    {{ form.delimiter }}
+                                    <div class="form-text">{{ form.delimiter.help_text }}</div>
+                                    {% if form.delimiter.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.delimiter.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.encoding.id_for_label }}" class="form-label">{{ form.encoding.label }}</label>
+                                    {{ form.encoding }}
+                                    <div class="form-text">{{ form.encoding.help_text }}</div>
+                                    {% if form.encoding.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.encoding.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.has_header }}
+                            <label class="form-check-label" for="{{ form.has_header.id_for_label }}">
+                                {{ form.has_header.label }}
+                            </label>
+                            <div class="form-text">{{ form.has_header.help_text }}</div>
+                            {% if form.has_header.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.has_header.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-file-earmark-arrow-up"></i> Импортировать
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Информация о формате файла</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="mb-3">Требования к файлу CSV:</h6>
+                    <ul class="list-group list-group-flush mb-4">
+                        <li class="list-group-item">Файл должен быть в формате CSV</li>
+                        <li class="list-group-item">Формат данных должен соответствовать структуре абонентов</li>
+                        <li class="list-group-item">Каждая запись должна начинаться с числового ID</li>
+                        <li class="list-group-item">При наличии заголовка, отметьте соответствующий пункт</li>
+                    </ul>
+                    
+                    <h6 class="mb-3">Порядок полей в CSV:</h6>
+                    <ol class="list-group list-group-numbered mb-4">
+                        <li class="list-group-item">ID</li>
+                        <li class="list-group-item">Номер</li>
+                        <li class="list-group-item">Фамилия</li>
+                        <li class="list-group-item">Имя</li>
+                        <li class="list-group-item">Отчество</li>
+                        <li class="list-group-item">Адрес</li>
+                        <li class="list-group-item">Memo1</li>
+                        <li class="list-group-item">Memo2</li>
+                        <li class="list-group-item">Место рождения</li>
+                        <li class="list-group-item">Дата рождения</li>
+                        <li class="list-group-item">IMSI</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

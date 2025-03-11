@@ -5,18 +5,47 @@ from .models import Subscriber, ImportHistory
 
 @admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
-    list_display = ('last_name', 'first_name', 'middle_name', 'phone_number', 'email', 'is_active', 'created_at')
-    list_filter = ('is_active', 'gender', 'import_id')
-    search_fields = ('last_name', 'first_name', 'middle_name', 'phone_number', 'email', 'address')
+    list_display = ('last_name', 'first_name', 'middle_name', 'number', 'imsi', 'is_active', 'created_at')
+    list_filter = ('is_active', 'gender', 'import_history', 'created_at')
+    search_fields = ('last_name', 'first_name', 'middle_name', 'number', 'imsi', 'address', 'birth_place')
     date_hierarchy = 'created_at'
     ordering = ('-created_at',)
-    list_per_page = 25
+    list_per_page = 50
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Основная информация', {
+            'fields': (('last_name', 'first_name', 'middle_name'), ('number', 'imsi'), 'gender')
+        }),
+        ('Личные данные', {
+            'fields': ('birth_date', 'birth_place', 'address')
+        }),
+        ('Дополнительная информация', {
+            'fields': ('memo1', 'memo2', 'email')
+        }),
+        ('Служебная информация', {
+            'fields': ('original_id', 'is_active', 'import_history', 'created_at', 'updated_at')
+        }),
+    )
 
 @admin.register(ImportHistory)
 class ImportHistoryAdmin(admin.ModelAdmin):
-    list_display = ('id', 'file_name', 'records_count', 'file_size', 'created_at', 'created_by')
-    list_filter = ('created_at', 'created_by')
-    search_fields = ('file_name', 'created_by__username')
-    date_hierarchy = 'created_at'
-    ordering = ('-created_at',)
-    list_per_page = 25
+    list_display = ('id', 'file_name', 'created_at', 'status', 'records_count', 'records_created', 'records_failed')
+    list_filter = ('status', 'created_at')
+    search_fields = ('file_name',)
+    readonly_fields = ('file_name', 'file_size', 'created_at', 'created_by', 'status', 
+                      'records_count', 'records_created', 'records_failed', 'archive_table_name', 'error_message')
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('file_name', 'file_size', 'created_at', 'created_by', 'status')
+        }),
+        ('Результаты импорта', {
+            'fields': ('records_count', 'records_created', 'records_failed', 'archive_table_name', 'error_message')
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        return False  # Запрещаем ручное создание записей
+    
+    def has_delete_permission(self, request, obj=None):
+        # Разрешаем удаление только для суперпользователей
+        return request.user.is_superuser
