@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.db import models
 
 from .models import Subscriber, ImportHistory
-from .forms import CSVImportForm, ImportCSVForm
+from .forms import CSVImportForm, ImportCSVForm, SearchForm
 from .tasks import process_csv_import_task_impl
 
 # Настройка логирования
@@ -202,3 +202,75 @@ def cleanup_archives(request):
     
     # Перенаправляем на страницу истории импорта
     return redirect('subscribers:import_history')
+
+def search_subscribers(request):
+    """Представление для поиска абонентов"""
+    form = SearchForm(request.GET or None)
+    subscribers = []
+    search_performed = False
+    
+    if request.GET and form.is_valid():
+        search_performed = True
+        
+        # Получаем данные из формы
+        phone_number = form.cleaned_data.get('phone_number')
+        full_name = form.cleaned_data.get('full_name')
+        passport = form.cleaned_data.get('passport')
+        address = form.cleaned_data.get('address')
+        
+        # Создаем базовый запрос
+        query = Subscriber.objects.filter(is_active=True)
+        
+        # Применяем фильтры, если указаны соответствующие значения
+        if phone_number:
+            # Если номер телефона содержит 11 цифр и начинается с 993, ищем точное совпадение
+            if len(phone_number) == 11 and phone_number.startswith('993'):
+                query = query.filter(number=phone_number)
+            else:
+                # Иначе ищем вхождение
+                query = query.filter(number__icontains=phone_number)
+                
+        if full_name:
+            # Поиск по ФИО (ищем вхождение в имени, фамилии или отчестве)
+            query = query.filter(
+                models.Q(first_name__icontains=full_name) |
+                models.Q(last_name__icontains=full_name) |
+                models.Q(middle_name__icontains=full_name)
+            )
+            
+        if passport:
+            # Поиск по паспортным данным (поле memo1)
+            query = query.filter(memo1__icontains=passport)
+            
+        if address:
+            # Поиск по адресу
+            query = query.filter(address__icontains=address)
+            
+        # Если хотя бы один фильтр был применен, получаем результаты
+        if phone_number or full_name or passport or address:
+            subscribers = query.order_by('last_name', 'first_name')
+            
+            # Пагинация результатов
+            paginator = Paginator(subscribers, 20)  # 20 записей на страницу
+            page_number = request.GET.get('page')
+            subscribers_page = paginator.get_page(page_number)
+            subscribers = subscribers_page
+        
+    context = {
+        'form': form,
+        'subscribers': subscribers,
+        'search_performed': search_performed,
+    }
+    
+    return render(request, 'subscribers/search.html', context)
+
+@login_required
+def subscriber_detail(request, subscriber_id):
+    """Представление для просмотра подробной информации об абоненте"""
+    subscriber = get_object_or_404(Subscriber, id=subscriber_id)
+    
+    context = {
+        'subscriber': subscriber,
+    }
+    
+    return render(request, 'subscribers/subscriber_detail.html', context)
