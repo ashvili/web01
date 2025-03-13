@@ -14,6 +14,12 @@
                 <p class="card-text">Вы успешно авторизованы в системе.</p>
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
                     <a href="{% url 'subscribers:list' %}" class="btn btn-primary">Перейти к списку абонентов</a>
+                    <a href="{% url 'subscribers:import_history' %}" class="btn btn-info">
+                        <i class="fas fa-history me-2"></i>История импорта
+                    </a>
+                    <a href="{% url 'subscribers:import_csv' %}" class="btn btn-success">
+                        <i class="fas fa-file-import me-2"></i>Импорт данных
+                    </a>
                     <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">Профиль</a>
                 </div>
             </div>
