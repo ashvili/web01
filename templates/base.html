@@ -20,12 +20,12 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         {% if user.is_authenticated %}
+                        {% if user.profile.user_type == 0 %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'subscribers:list' %}">Абоненты</a>
                         </li>
-                        {% if user.profile.can_import_data %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'subscribers:import' %}">Импорт данных</a>
+                            <a class="nav-link" href="{% url 'subscribers:import_csv' %}">Импорт данных</a>
                         </li>
                         {% endif %}
                         {% if user.profile.can_view_logs %}

@@ -5,7 +5,7 @@ app_name = 'subscribers'
 
 urlpatterns = [
     # Список абонентов
-    path('', views.search_subscribers, name='list'),
+    path('', views.subscriber_list, name='list'),
     
     # Импорт данных из CSV
     path('import/', views.import_csv, name='import_csv'),

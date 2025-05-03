@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Отключение двухфакторной аутентификации</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="token" class="form-label">Код подтверждения</label>
+            <input type="text" name="token" id="token" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-danger">Отключить 2FA</button>
+    </form>
+</div>
+{% endblock %} 

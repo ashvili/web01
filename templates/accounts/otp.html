@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Двухфакторная аутентификация{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Подтверждение входа</h4>
+            </div>
+            <div class="card-body">
+                <p class="mb-4">
+                    Для завершения входа введите код из вашего приложения для двухфакторной аутентификации.
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="token" class="form-label">Код подтверждения</label>
+                        <input type="text" name="token" id="token" 
+                               class="form-control form-control-lg text-center" 
+                               maxlength="6" 
+                               required 
+                               autocomplete="off"
+                               autofocus>
+                        <div class="form-text">
+                            Введите 6-значный код из вашего приложения для двухфакторной аутентификации
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            Подтвердить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -59,7 +59,7 @@
 
   {% if wizard.steps.current == 'auth' %}
     <div class="mt-3 text-center">
-      <a href="{% url 'password_reset' %}" class="text-decoration-none">{% trans "Забыли пароль?" %}</a>
+      <a href="{% url 'accounts:password_reset' %}" class="text-decoration-none">{% trans "Забыли пароль?" %}</a>
     </div>
   {% endif %}
 {% endblock %} 

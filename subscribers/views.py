@@ -6,7 +6,7 @@ import logging
 import base64
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import HttpResponse
@@ -21,9 +21,13 @@ from .tasks import process_csv_import_task_impl
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
+def is_admin(user):
+    return user.profile.user_type == 0  # 0 - Администратор
+
 @login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def subscriber_list(request):
-    """Представление для просмотра списка абонентов"""
+    """Представление для просмотра списка абонентов (только для администраторов)"""
     # Получение параметров фильтрации из GET запроса
     search_query = request.GET.get('q', '')
     
@@ -55,8 +59,9 @@ def subscriber_list(request):
     })
 
 @login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def import_csv(request):
-    """Представление для импорта данных из CSV-файла"""
+    """Представление для импорта данных из CSV-файла (только для администраторов)"""
     if request.method == 'POST':
         form = ImportCSVForm(request.POST, request.FILES)
         if form.is_valid():
@@ -153,8 +158,9 @@ def import_csv(request):
     return render(request, 'subscribers/import_csv.html', {'form': form})
 
 @login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def import_history(request):
-    """Представление для просмотра истории импорта"""
+    """Представление для просмотра истории импорта (только для администраторов)"""
     history_list = ImportHistory.objects.all().order_by('-created_at')
     
     # Пагинация
@@ -165,8 +171,9 @@ def import_history(request):
     return render(request, 'subscribers/import_history.html', {'history_page': history_page})
 
 @login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def import_detail(request, import_id):
-    """Представление для просмотра деталей импорта"""
+    """Представление для просмотра деталей импорта (только для администраторов)"""
     import_history = get_object_or_404(ImportHistory, id=import_id)
     subscribers = Subscriber.objects.filter(import_history=import_history).order_by('id')
     
@@ -182,8 +189,9 @@ def import_detail(request, import_id):
     return render(request, 'subscribers/import_detail.html', context)
 
 @login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def cleanup_archives(request):
-    """Представление для ручной очистки архивных таблиц"""
+    """Представление для ручной очистки архивных таблиц (только для администраторов)"""
     from subscribers.tasks import cleanup_old_archive_tables
     
     # По умолчанию оставляем 3 последние архивные таблицы
