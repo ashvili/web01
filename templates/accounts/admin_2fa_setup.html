@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Настройка 2FA для {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Настройка двухфакторной аутентификации для {{ user.username }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <p><i class="fas fa-info-circle"></i> Вы настраиваете двухфакторную аутентификацию для пользователя <strong>{{ user.username }}</strong>.</p>
+                        <p>Отсканируйте QR-код приложением для аутентификации (например, Google Authenticator) или введите секретный ключ вручную.</p>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 text-center mb-4">
+                            <h6 class="mb-3">QR-код</h6>
+                            <img src="{{ qr_code }}" alt="QR код для 2FA" class="img-fluid border p-2">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Секретный ключ</h6>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" value="{{ secret }}" readonly>
+                                <button class="btn btn-outline-secondary copy-btn" type="button" data-clipboard-text="{{ secret }}">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Если не можете отсканировать QR-код, введите этот ключ вручную в приложение.</small>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="token" class="form-label">Код подтверждения</label>
+                            <input type="text" class="form-control" name="token" id="token" placeholder="Введите 6-значный код из приложения" required>
+                            <small class="form-text text-muted">Введите 6-значный код, который отображается в приложении аутентификации.</small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'accounts:user_edit' pk=user.id %}" class="btn btn-secondary">Отмена</a>
+                            <button type="submit" class="btn btn-primary">Подтвердить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Копирование секретного ключа
+        const copyBtn = document.querySelector('.copy-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                const secretInput = this.previousElementSibling;
+                secretInput.select();
+                document.execCommand('copy');
+                
+                // Показываем уведомление об успешном копировании
+                this.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => {
+                    this.innerHTML = '<i class="fas fa-copy"></i>';
+                }, 2000);
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %} 
