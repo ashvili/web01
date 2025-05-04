@@ -77,59 +77,65 @@
                         <ul class="pagination justify-content-center mb-0">
                             {% if history_page.has_previous %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=1" aria-label="Первая">
+                                    <a class="page-link" href="?page=1" aria-label="В начало">
                                         <span aria-hidden="true">&laquo;&laquo;</span>
                                     </a>
                                 </li>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ history_page.previous_page_number }}" aria-label="Предыдущая">
+                                    <a class="page-link" href="?page={{ history_page.previous_page_number }}" aria-label="Назад">
                                         <span aria-hidden="true">&laquo;</span>
                                     </a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Первая">
+                                    <a class="page-link" href="#" aria-label="В начало">
                                         <span aria-hidden="true">&laquo;&laquo;</span>
                                     </a>
                                 </li>
                                 <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Предыдущая">
+                                    <a class="page-link" href="#" aria-label="Назад">
                                         <span aria-hidden="true">&laquo;</span>
                                     </a>
                                 </li>
                             {% endif %}
 
                             {% for num in history_page.paginator.page_range %}
-                                {% if history_page.number == num %}
-                                    <li class="page-item active">
-                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                                    </li>
-                                {% elif num > history_page.number|add:'-3' and num < history_page.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                {% if num == 1 or num == history_page.paginator.num_pages or num >= history_page.number|add:'-2' and num <= history_page.number|add:'2' %}
+                                    {% if history_page.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% elif num == history_page.number|add:'-3' or num == history_page.number|add:'3' %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
                                     </li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if history_page.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ history_page.next_page_number }}" aria-label="Следующая">
+                                    <a class="page-link" href="?page={{ history_page.next_page_number }}" aria-label="Вперед">
                                         <span aria-hidden="true">&raquo;</span>
                                     </a>
                                 </li>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ history_page.paginator.num_pages }}" aria-label="Последняя">
+                                    <a class="page-link" href="?page={{ history_page.paginator.num_pages }}" aria-label="В конец">
                                         <span aria-hidden="true">&raquo;&raquo;</span>
                                     </a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Следующая">
+                                    <a class="page-link" href="#" aria-label="Вперед">
                                         <span aria-hidden="true">&raquo;</span>
                                     </a>
                                 </li>
                                 <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Последняя">
+                                    <a class="page-link" href="#" aria-label="В конец">
                                         <span aria-hidden="true">&raquo;&raquo;</span>
                                     </a>
                                 </li>
