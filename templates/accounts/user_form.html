@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}{% if user_form.instance.pk %}Редактирование{% else %}Создание{% endif %} пользователя{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{% if user_form.instance.pk %}Редактирование{% else %}Создание{% endif %} пользователя</h1>
+        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="card-title mb-0">
+                {% if user_form.instance.pk %}
+                    Редактирование пользователя: {{ user_form.instance.username }}
+                {% else %}
+                    Новый пользователь
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <h5 class="mb-3">Основная информация</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="{{ user_form.username.id_for_label }}" class="form-label">Имя пользователя *</label>
+                        {{ user_form.username|add_class:"form-control" }}
+                        {% if user_form.username.errors %}
+                        <div class="text-danger">{{ user_form.username.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ user_form.email.id_for_label }}" class="form-label">Email</label>
+                        {{ user_form.email|add_class:"form-control" }}
+                        {% if user_form.email.errors %}
+                        <div class="text-danger">{{ user_form.email.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ user_form.first_name.id_for_label }}" class="form-label">Имя</label>
+                        {{ user_form.first_name|add_class:"form-control" }}
+                        {% if user_form.first_name.errors %}
+                        <div class="text-danger">{{ user_form.first_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ user_form.last_name.id_for_label }}" class="form-label">Фамилия</label>
+                        {{ user_form.last_name|add_class:"form-control" }}
+                        {% if user_form.last_name.errors %}
+                        <div class="text-danger">{{ user_form.last_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% if not user_form.instance.pk %}
+                    <div class="col-12">
+                        <label for="{{ user_form.password.id_for_label }}" class="form-label">Пароль *</label>
+                        {{ user_form.password|add_class:"form-control" }}
+                        {% if user_form.password.errors %}
+                        <div class="text-danger">{{ user_form.password.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="col-12">
+                        <label for="{{ user_form.password.id_for_label }}" class="form-label">Новый пароль (оставьте пустым, чтобы не менять)</label>
+                        {{ user_form.password|add_class:"form-control" }}
+                        {% if user_form.password.errors %}
+                        <div class="text-danger">{{ user_form.password.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <h5 class="mb-3">Профиль пользователя</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label for="{{ profile_form.department.id_for_label }}" class="form-label">Отдел</label>
+                        {{ profile_form.department|add_class:"form-control" }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ profile_form.position.id_for_label }}" class="form-label">Должность</label>
+                        {{ profile_form.position|add_class:"form-control" }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ profile_form.phone_number.id_for_label }}" class="form-label">Телефон</label>
+                        {{ profile_form.phone_number|add_class:"form-control" }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ profile_form.user_type.id_for_label }}" class="form-label">Тип пользователя *</label>
+                        {{ profile_form.user_type|add_class:"form-control" }}
+                        {% if profile_form.user_type.errors %}
+                        <div class="text-danger">{{ profile_form.user_type.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ profile_form.items_per_page.id_for_label }}" class="form-label">Записей на странице</label>
+                        {{ profile_form.items_per_page|add_class:"form-control" }}
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary ms-2">Отмена</a>
+                </div>
+            </form>
+            
+            {% if user_form.instance.pk %}
+            <hr class="my-4">
+            
+            <h5 class="mb-3">Двухфакторная аутентификация</h5>
+            <div class="row">
+                <div class="col-md-8">
+                    <p>Текущий статус: 
+                        {% if user_form.instance.profile.totp_enabled %}
+                            <span class="badge bg-success">Включена</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Отключена</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-muted">
+                        {% if user_form.instance.profile.totp_enabled %}
+                            Пользователь использует двухфакторную аутентификацию для входа в систему.
+                        {% else %}
+                            Пользователь не использует двухфакторную аутентификацию. Вы можете включить её для повышения безопасности.
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <form method="post" action="{% url 'accounts:manage_user_2fa' user_form.instance.pk %}">
+                        {% csrf_token %}
+                        {% if user_form.instance.profile.totp_enabled %}
+                            <input type="hidden" name="action" value="disable">
+                            <button type="submit" class="btn btn-danger">Отключить 2FA</button>
+                        {% else %}
+                            <input type="hidden" name="action" value="enable">
+                            <button type="submit" class="btn btn-success">Включить 2FA</button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -85,6 +85,11 @@ class CustomTOTPSetupView(LoginRequiredMixin, View):
     template_name = 'accounts/totp_setup.html'
     
     def get(self, request):
+        # Проверяем, что пользователь - администратор
+        if not request.user.profile.is_admin():
+            messages.error(request, 'У вас нет доступа к настройке 2FA. Обратитесь к администратору.')
+            return redirect('accounts:profile')
+            
         if request.user.profile.totp_enabled:
             return redirect('accounts:profile')
         
@@ -123,6 +128,11 @@ class CustomTOTPSetupView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
     
     def post(self, request):
+        # Проверяем, что пользователь - администратор
+        if not request.user.profile.is_admin():
+            messages.error(request, 'У вас нет доступа к настройке 2FA. Обратитесь к администратору.')
+            return redirect('accounts:profile')
+            
         if request.user.profile.totp_enabled:
             return redirect('accounts:profile')
         
@@ -150,11 +160,21 @@ class DisableTOTPView(LoginRequiredMixin, View):
     template_name = 'accounts/disable_totp.html'
     
     def get(self, request):
+        # Проверяем, что пользователь - администратор
+        if not request.user.profile.is_admin():
+            messages.error(request, 'У вас нет доступа к отключению 2FA. Обратитесь к администратору.')
+            return redirect('accounts:profile')
+            
         if not request.user.profile.totp_enabled:
             return redirect('accounts:profile')
         return render(request, self.template_name)
     
     def post(self, request):
+        # Проверяем, что пользователь - администратор
+        if not request.user.profile.is_admin():
+            messages.error(request, 'У вас нет доступа к отключению 2FA. Обратитесь к администратору.')
+            return redirect('accounts:profile')
+            
         if not request.user.profile.totp_enabled:
             return redirect('accounts:profile')
         
@@ -268,3 +288,32 @@ def user_delete(request, pk):
         messages.success(request, 'Пользователь успешно удален')
         return redirect('user_list')
     return render(request, 'accounts/user_confirm_delete.html', {'user': user})
+
+# Функция для настройки/отключения 2FA другому пользователю (только для администраторов)
+@login_required
+@user_passes_test(is_admin)
+def manage_user_2fa(request, user_id):
+    """Управление 2FA для пользователя (только для администраторов)"""
+    user = get_object_or_404(User, id=user_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'enable':
+            # Генерируем новый секрет для пользователя
+            import pyotp
+            secret = pyotp.random_base32()
+            
+            user.profile.totp_secret = secret
+            user.profile.totp_enabled = True
+            user.profile.save()
+            
+            messages.success(request, f'2FA успешно включена для пользователя {user.username}')
+        elif action == 'disable':
+            # Отключаем 2FA
+            user.profile.totp_secret = None
+            user.profile.totp_enabled = False
+            user.profile.save()
+            
+            messages.success(request, f'2FA успешно отключена для пользователя {user.username}')
+    
+    return redirect('accounts:user_edit', pk=user_id)

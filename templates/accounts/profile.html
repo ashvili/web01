@@ -92,18 +92,29 @@
                     
                     <div class="mt-4">
                         <h5>Двухфакторная аутентификация</h5>
-                        {% if user.profile.totp_enabled %}
-                            <p>Статус: <span class="badge bg-success">Включена</span></p>
-                            <p class="text-muted mb-0">Для входа в систему вам требуется 6-значный код из приложения аутентификации.</p>
-                            <div class="mt-2">
-                                <a href="{% url 'accounts:disable_totp' %}" class="btn btn-outline-danger">Отключить двухфакторную аутентификацию</a>
-                            </div>
+                        {% if user.profile.is_admin %}
+                            {% if user.profile.totp_enabled %}
+                                <p>Статус: <span class="badge bg-success">Включена</span></p>
+                                <p class="text-muted mb-0">Для входа в систему вам требуется 6-значный код из приложения аутентификации.</p>
+                                <div class="mt-2">
+                                    <a href="{% url 'accounts:disable_totp' %}" class="btn btn-outline-danger">Отключить двухфакторную аутентификацию</a>
+                                </div>
+                            {% else %}
+                                <p>Статус: <span class="badge bg-secondary">Отключена</span></p>
+                                <p class="text-muted mb-0">Рекомендуем включить для повышения безопасности вашей учетной записи.</p>
+                                <div class="mt-2">
+                                    <a href="{% url 'accounts:totp_setup' %}" class="btn btn-primary">Настроить 2FA</a>
+                                </div>
+                            {% endif %}
                         {% else %}
-                            <p>Статус: <span class="badge bg-secondary">Отключена</span></p>
-                            <p class="text-muted mb-0">Рекомендуем включить для повышения безопасности вашей учетной записи.</p>
-                            <div class="mt-2">
-                                <a href="{% url 'accounts:totp_setup' %}" class="btn btn-primary">Настроить 2FA</a>
-                            </div>
+                            {% if user.profile.totp_enabled %}
+                                <p>Статус: <span class="badge bg-success">Включена</span></p>
+                                <p class="text-muted mb-0">Для входа в систему вам требуется 6-значный код из приложения аутентификации.</p>
+                                <p class="text-muted mt-2">Для изменения настроек 2FA обратитесь к администратору.</p>
+                            {% else %}
+                                <p>Статус: <span class="badge bg-secondary">Отключена</span></p>
+                                <p class="text-muted mb-0">Для включения 2FA обратитесь к администратору.</p>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
