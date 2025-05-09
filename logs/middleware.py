@@ -1,0 +1,34 @@
+import time
+import json
+from django.utils.deprecation import MiddlewareMixin
+from .models import UserActionLog
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+class UserActionLoggingMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        request._start_time = time.time()
+
+    def process_response(self, request, response):
+        if request.user.is_authenticated:
+            duration_ms = (time.time() - getattr(request, '_start_time', time.time())) * 1000
+            try:
+                data = json.dumps(request.GET.dict() or request.POST.dict())
+            except Exception:
+                data = ''
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='OTHER',
+                path=request.path,
+                method=request.method,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                additional_data=data,
+            )
+        return response 

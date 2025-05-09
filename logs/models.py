@@ -25,6 +25,11 @@ class UserActionLog(models.Model):
     action_time = models.DateTimeField('Время действия', default=timezone.now)
     ip_address = models.GenericIPAddressField('IP адрес', null=True, blank=True)
     user_agent = models.TextField('User Agent', null=True, blank=True)
+    # Расширенные поля для логирования
+    path = models.CharField('Путь запроса', max_length=255, default='/')
+    method = models.CharField('HTTP метод', max_length=10, default='GET')
+    status_code = models.PositiveIntegerField('HTTP код ответа', null=True, blank=True)
+    duration_ms = models.FloatField('Время обработки (ms)', null=True, blank=True)
     
     # Для связи с любым объектом в системе (через ContentType framework)
     content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, 
