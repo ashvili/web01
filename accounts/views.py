@@ -16,13 +16,20 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from django.core.paginator import Paginator
+import pyotp
 
-from .forms import UserProfileForm
+from .forms import UserProfileForm, UserForm, TOTPForm
 from .models import UserProfile
 
-# Главная страница
-class HomeView(TemplateView):
+# Главная страница (администратор) или перенаправление на поиск абонентов для остальных
+class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'accounts/home.html'
+
+    def get(self, request, *args, **kwargs):
+        # Если пользователь не администратор, перенаправляем на поиск абонентов
+        if not request.user.profile.is_admin():
+            return redirect('subscribers:search')
+        return super().get(request, *args, **kwargs)
 
 # Представление для профиля пользователя
 class ProfileView(LoginRequiredMixin, UpdateView):
@@ -203,7 +210,7 @@ class LoginView(View):
         return render(request, self.template_name, {'form': form})
 
 def is_admin(user):
-    return user.profile.role == 'admin'
+    return user.profile.is_admin()
 
 @login_required
 @user_passes_test(is_admin)
@@ -221,14 +228,20 @@ def user_create(request):
         user_form = UserForm(request.POST)
         profile_form = UserProfileForm(request.POST)
         if user_form.is_valid() and profile_form.is_valid():
+            # Сохраняем пользователя
             user = user_form.save(commit=False)
             user.password = make_password(user_form.cleaned_data['password'])
             user.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
+            
+            # Обновляем профиль, который был автоматически создан через сигнал
+            profile = user.profile
+            # Применяем значения из формы
+            for field_name, field_value in profile_form.cleaned_data.items():
+                setattr(profile, field_name, field_value)
             profile.save()
+            
             messages.success(request, 'Пользователь успешно создан')
-            return redirect('user_list')
+            return redirect('accounts:user_list')
     else:
         user_form = UserForm()
         profile_form = UserProfileForm()
@@ -244,19 +257,54 @@ def user_edit(request, pk):
     if request.method == 'POST':
         user_form = UserForm(request.POST, instance=user)
         profile_form = UserProfileForm(request.POST, instance=user.profile)
-        if user_form.is_valid() and profile_form.is_valid():
+        totp_form = TOTPForm(request.POST, user=user)
+        
+        if user_form.is_valid() and profile_form.is_valid() and totp_form.is_valid():
+            # Обработка настроек 2FA
+            totp_enabled = totp_form.cleaned_data.get('totp_enabled')
+            reset_totp = totp_form.cleaned_data.get('reset_totp')
+            
+            # Сброс настроек 2FA, если запрошено
+            if reset_totp:
+                user.profile.totp_secret = None
+                user.profile.totp_enabled = False
+                user.profile.save()
+                messages.success(request, '2FA отключена и сброшена')
+            
+            # Если 2FA была включена и она не была ранее настроена или была сброшена
+            elif totp_enabled and (not user.profile.totp_enabled or reset_totp):
+                # Генерируем новый секрет
+                secret = pyotp.random_base32()
+                user.profile.totp_secret = secret
+                user.profile.totp_enabled = True
+                user.profile.save()
+                messages.success(request, 'Необходимо завершить настройку 2FA')
+                # Перенаправляем на страницу завершения настройки 2FA для этого пользователя
+                return redirect('accounts:admin_2fa_setup', pk=user.id)
+            
+            # Если 2FA была отключена
+            elif not totp_enabled and user.profile.totp_enabled:
+                user.profile.totp_enabled = False
+                user.profile.save()
+                messages.success(request, '2FA отключена')
+            
+            # Обработка данных пользователя
             if user_form.cleaned_data.get('password'):
                 user.password = make_password(user_form.cleaned_data['password'])
             user_form.save()
             profile_form.save()
+            
             messages.success(request, 'Пользователь успешно обновлен')
-            return redirect('user_list')
+            return redirect('accounts:user_list')
     else:
         user_form = UserForm(instance=user)
         profile_form = UserProfileForm(instance=user.profile)
+        totp_form = TOTPForm(user=user)
+    
     return render(request, 'accounts/user_form.html', {
         'user_form': user_form,
-        'profile_form': profile_form
+        'profile_form': profile_form,
+        'totp_form': totp_form
     })
 
 @login_required
@@ -266,5 +314,62 @@ def user_delete(request, pk):
     if request.method == 'POST':
         user.delete()
         messages.success(request, 'Пользователь успешно удален')
-        return redirect('user_list')
+        return redirect('accounts:user_list')
     return render(request, 'accounts/user_confirm_delete.html', {'user': user})
+
+@login_required
+@user_passes_test(is_admin)
+def admin_2fa_setup(request, pk):
+    target_user = get_object_or_404(User, pk=pk)
+    
+    if not target_user.profile.totp_enabled or not target_user.profile.totp_secret:
+        messages.error(request, '2FA не включена для этого пользователя')
+        return redirect('accounts:user_edit', pk=pk)
+    
+    if request.method == 'POST':
+        token = request.POST.get('token')
+        if not token:
+            messages.error(request, 'Введите код подтверждения')
+            return render(request, 'accounts/admin_2fa_setup.html', {'user': target_user})
+        
+        totp = pyotp.TOTP(target_user.profile.totp_secret)
+        if totp.verify(token):
+            messages.success(request, '2FA успешно настроена')
+            return redirect('accounts:user_edit', pk=pk)
+        else:
+            messages.error(request, 'Неверный код')
+    
+    # Генерируем QR-код
+    import qrcode
+    import base64
+    from io import BytesIO
+    
+    secret = target_user.profile.totp_secret
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(
+        target_user.email or target_user.username,
+        issuer_name=settings.OTP_TOTP_ISSUER
+    )
+    
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer)
+    buffer.seek(0)
+    qr_code = base64.b64encode(buffer.getvalue()).decode()
+    
+    context = {
+        'user': target_user,
+        'secret': secret,
+        'qr_code': f"data:image/png;base64,{qr_code}"
+    }
+    
+    return render(request, 'accounts/admin_2fa_setup.html', context)

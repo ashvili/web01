@@ -1,0 +1,57 @@
+<<<<<<< HEAD
+/accounts/__pycache__/forms.cpython-313.pyc
+/accounts/__pycache__/urls.cpython-313.pyc
+/accounts/__pycache__/views.cpython-313.pyc
+/logs/__pycache__/middleware.cpython-313.pyc
+/logs/__pycache__/views.cpython-313.pyc
+/logs/migrations/__pycache__/0002_add_path_and_method_defaults.cpython-313.pyc
+/vl09_web/__pycache__/settings.cpython-313.pyc
+__pycache__/
+=======
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+ENV/
+.env
+
+# Django stuff
+*.sqlite3
+/staticfiles/
+/media/
+
+# Logs and databases
+*.log
+*.pot
+*.py,cover
+.coverage
+htmlcov/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+
+# PyCharm
+*.iml
+
+# Mac
+.DS_Store 
+/logs/__pycache__/admin.cpython-313.pyc
+/logs/__pycache__/models.cpython-313.pyc
+/logs/__pycache__/urls.cpython-313.pyc
+/vl09_web/__pycache__/settings.cpython-313.pyc
+/logs/__pycache__/models.cpython-313.pyc
+>>>>>>> main

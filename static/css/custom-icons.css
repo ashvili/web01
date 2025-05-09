@@ -1,0 +1,33 @@
+/* Пользовательские иконки для работы без доступа к интернету */
+.icon-pencil::before {
+    content: "✏️";
+}
+
+.icon-trash::before {
+    content: "🗑️";
+}
+
+.icon-plus::before {
+    content: "➕";
+}
+
+.icon-person-plus::before {
+    content: "👤+";
+}
+
+/* Классы, чтобы заменить Bootstrap Icons при необходимости */
+.bi-pencil::before {
+    content: "✏️";
+}
+
+.bi-trash::before {
+    content: "🗑️";
+}
+
+.bi-plus::before {
+    content: "➕";
+}
+
+.bi-person-plus::before {
+    content: "👤+";
+} 

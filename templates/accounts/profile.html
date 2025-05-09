@@ -10,6 +10,7 @@
         <h2 class="mb-4">Профиль пользователя</h2>
         
         <div class="row">
+            {% if user.profile.user_type == 0 %}
             <div class="col-md-6">
                 <div class="profile-section">
                     <h4>Личные данные</h4>
@@ -43,8 +44,10 @@
                     </form>
                 </div>
             </div>
+            {% endif %}
             
             <div class="col-md-6">
+                {% if user.profile.user_type == 0 %}
                 <div class="profile-section">
                     <h4>Настройки интерфейса</h4>
                     <form method="post">
@@ -60,6 +63,7 @@
                         <button type="submit" name="profile_submit" class="btn btn-primary">Сохранить настройки</button>
                     </form>
                 </div>
+                {% endif %}
                 
                 <div class="profile-section mt-4">
                     <h4>Безопасность</h4>
@@ -95,9 +99,11 @@
                         {% if user.profile.totp_enabled %}
                             <p>Статус: <span class="badge bg-success">Включена</span></p>
                             <p class="text-muted mb-0">Для входа в систему вам требуется 6-значный код из приложения аутентификации.</p>
+                            {% if user.profile.user_type == 0 %}
                             <div class="mt-2">
                                 <a href="{% url 'accounts:disable_totp' %}" class="btn btn-outline-danger">Отключить двухфакторную аутентификацию</a>
                             </div>
+                            {% endif %}
                         {% else %}
                             <p>Статус: <span class="badge bg-secondary">Отключена</span></p>
                             <p class="text-muted mb-0">Рекомендуем включить для повышения безопасности вашей учетной записи.</p>
