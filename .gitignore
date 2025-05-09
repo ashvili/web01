@@ -39,3 +39,7 @@ htmlcov/
 
 # Mac
 .DS_Store 
+/logs/__pycache__/admin.cpython-313.pyc
+/logs/__pycache__/models.cpython-313.pyc
+/logs/__pycache__/urls.cpython-313.pyc
+/vl09_web/__pycache__/settings.cpython-313.pyc

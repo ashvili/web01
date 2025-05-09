@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django_otp.middleware.OTPMiddleware',  # Новый middleware для 2FA
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'logs.middleware.UserActionLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'vl09_web.urls'
