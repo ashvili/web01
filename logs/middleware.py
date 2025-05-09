@@ -30,7 +30,5 @@ class UserActionLoggingMiddleware(MiddlewareMixin):
                 ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', ''),
                 additional_data=data,
-                content_type=None,
-                object_id=None,
             )
         return response 
