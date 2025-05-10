@@ -227,67 +227,52 @@ def cleanup_archives(request):
     # Перенаправляем на страницу истории импорта
     return redirect('subscribers:import_history')
 
-@log_action_decorator('SEARCH')
 @login_required
 def search_subscribers(request):
     """Представление для поиска абонентов"""
     form = SearchForm(request.GET or None)
     subscribers = []
     search_performed = False
-    
+
     if request.GET and form.is_valid():
         search_performed = True
-        
-        # Получаем данные из формы
         phone_number = form.cleaned_data.get('phone_number')
         full_name = form.cleaned_data.get('full_name')
         passport = form.cleaned_data.get('passport')
         address = form.cleaned_data.get('address')
-        
-        # Создаем базовый запрос
         query = Subscriber.objects.filter(is_active=True)
-        
-        # Применяем фильтры, если указаны соответствующие значения
         if phone_number:
-            # Если номер телефона содержит 11 цифр и начинается с 993, ищем точное совпадение
             if len(phone_number) == 11 and phone_number.startswith('993'):
                 query = query.filter(number=phone_number)
             else:
-                # Иначе ищем вхождение
                 query = query.filter(number__icontains=phone_number)
-                
         if full_name:
-            # Поиск по ФИО (ищем вхождение в имени, фамилии или отчестве)
             query = query.filter(
                 models.Q(first_name__icontains=full_name) |
                 models.Q(last_name__icontains=full_name) |
                 models.Q(middle_name__icontains=full_name)
             )
-            
         if passport:
-            # Поиск по паспортным данным (поле memo1)
             query = query.filter(memo1__icontains=passport)
-            
         if address:
-            # Поиск по адресу
             query = query.filter(address__icontains=address)
-            
-        # Если хотя бы один фильтр был применен, получаем результаты
         if phone_number or full_name or passport or address:
             subscribers = query.order_by('last_name', 'first_name')
-            
-            # Пагинация результатов
-            paginator = Paginator(subscribers, 20)  # 20 записей на страницу
+            paginator = Paginator(subscribers, 20)
             page_number = request.GET.get('page')
             subscribers_page = paginator.get_page(page_number)
             subscribers = subscribers_page
-        
+            # Логируем только если реально был поиск и есть результаты
+            if subscribers:
+                log_search(request, request.user, additional_data={
+                    'query': request.GET.dict(),
+                    'results_count': len(subscribers)
+                })
     context = {
         'form': form,
         'subscribers': subscribers,
         'search_performed': search_performed,
     }
-    
     return render(request, 'subscribers/search.html', context)
 
 @login_required

@@ -211,6 +211,8 @@ class LoginView(View):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
+                from logs.utils import log_login  # импорт внутри метода, чтобы избежать циклических импортов
+                log_login(request, user)
                 if user.profile.totp_enabled:
                     return redirect('accounts:otp_required')
                 return redirect('subscribers:search')

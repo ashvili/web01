@@ -14,6 +14,12 @@ class UserActionLoggingMiddleware(MiddlewareMixin):
 
     def process_response(self, request, response):
         if request.user.is_authenticated:
+            # Не логируем просто открытие страницы поиска абонентов (GET и POST)
+            if request.path == '/subscribers/search/':
+                return response
+            # Логируем только если это не GET или если GET с параметрами
+            if request.method == 'GET' and not request.GET:
+                return response  # Не логируем просто открытие страницы
             duration_ms = (time.time() - getattr(request, '_start_time', time.time())) * 1000
             try:
                 data = json.dumps(request.GET.dict() or request.POST.dict())
