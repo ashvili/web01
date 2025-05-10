@@ -1,7 +1,6 @@
 import time
 import json
 from django.utils.deprecation import MiddlewareMixin
-from .models import UserActionLog
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -20,6 +19,10 @@ class UserActionLoggingMiddleware(MiddlewareMixin):
                 data = json.dumps(request.GET.dict() or request.POST.dict())
             except Exception:
                 data = ''
+                
+            # Импортируем модель внутри метода для избежания циклических зависимостей
+            from .models import UserActionLog
+            
             UserActionLog.objects.create(
                 user=request.user,
                 action_type='OTHER',

@@ -1,13 +1,170 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load log_tags %}
 
-{% block title %}Логи действий{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <h2 class="mb-4">Логи действий пользователей</h2>
-        <div class="alert alert-info">
-            <p>Эта страница находится в разработке. Здесь будет отображаться список логов действий пользователей.</p>
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">{{ title }}</h2>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="{{ form.user.id_for_label }}" class="form-label">{{ form.user.label }}</label>
+                                {{ form.user }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.action_type.id_for_label }}" class="form-label">{{ form.action_type.label }}</label>
+                                {{ form.action_type }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.date_from.id_for_label }}" class="form-label">{{ form.date_from.label }}</label>
+                                {{ form.date_from }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.date_to.id_for_label }}" class="form-label">{{ form.date_to.label }}</label>
+                                {{ form.date_to }}
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-3">
+                                <label for="{{ form.content_type.id_for_label }}" class="form-label">{{ form.content_type.label }}</label>
+                                {{ form.content_type }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.object_id.id_for_label }}" class="form-label">{{ form.object_id.label }}</label>
+                                {{ form.object_id }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.search_term.id_for_label }}" class="form-label">{{ form.search_term.label }}</label>
+                                {{ form.search_term }}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.ip_address.id_for_label }}" class="form-label">{{ form.ip_address.label }}</label>
+                                {{ form.ip_address }}
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">Применить фильтры</button>
+                                <a href="{% url 'logs:list' %}" class="btn btn-secondary">Сбросить</a>
+                                <a href="{% url 'logs:export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success float-end">
+                                    <i class="fas fa-file-export me-1"></i> Экспорт в CSV
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Пользователь</th>
+                                    <th>Действие</th>
+                                    <th>Дата и время</th>
+                                    <th>IP адрес</th>
+                                    <th>Путь</th>
+                                    <th>Метод</th>
+                                    <th>Объект</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log.id }}</td>
+                                    <td>{{ log.user.username }}</td>
+                                    <td>{{ log.get_action_type_display }}</td>
+                                    <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
+                                    <td>{{ log.ip_address|default:"-" }}</td>
+                                    <td>{{ log.path|default:"-"|truncatechars:30 }}</td>
+                                    <td>{{ log.method }}</td>
+                                    <td>
+                                        {% if log.content_type %}
+                                            {{ log.content_type.model }} #{{ log.object_id }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'logs:detail' log.id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> Детали
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center">Логи не найдены</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if logs.paginator.num_pages > 1 %}
+                    <nav aria-label="Навигация по страницам">
+                        <ul class="pagination justify-content-center">
+                            {% if logs.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Первая">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ logs.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Предыдущая">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;&laquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                            {% endif %}
+                            
+                            {% for i in logs.paginator.page_range %}
+                                {% if logs.number == i %}
+                                <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                                {% elif i > logs.number|add:"-3" and i < logs.number|add:"3" %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ i }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">{{ i }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if logs.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ logs.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Следующая">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Последняя">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;&raquo;</span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

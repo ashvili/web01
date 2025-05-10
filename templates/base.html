@@ -33,9 +33,12 @@
                             <a class="nav-link" href="{% url 'accounts:user_list' %}">Пользователи</a>
                         </li>
                         {% endif %}
-                        {% if user.profile.can_view_logs %}
+                        <!-- Пункт меню для логов (видим только для администраторов и персонала) -->
+                        {% if user.is_authenticated and user.is_staff or user.is_superuser or user.profile.user_type == 0 %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'logs:list' %}">Логи</a>
+                            <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">
+                                <i class="fas fa-history"></i> Логи действий
+                            </a>
                         </li>
                         {% endif %}
                         {% endif %}

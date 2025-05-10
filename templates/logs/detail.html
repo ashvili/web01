@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load log_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="card-title">{{ title }}</h2>
+                    <a href="{% url 'logs:list' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-1"></i> Вернуться к списку
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="mb-3">Основная информация</h4>
+                            <table class="table table-striped">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 30%">ID</th>
+                                        <td>{{ log.id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Тип действия</th>
+                                        <td>
+                                            <span class="badge 
+                                                {% if log.action_type == 'LOGIN' %}bg-success{% endif %}
+                                                {% if log.action_type == 'LOGOUT' %}bg-info{% endif %}
+                                                {% if log.action_type == 'CREATE' %}bg-primary{% endif %}
+                                                {% if log.action_type == 'UPDATE' %}bg-warning{% endif %}
+                                                {% if log.action_type == 'DELETE' %}bg-danger{% endif %}
+                                                {% if log.action_type == 'IMPORT' %}bg-primary{% endif %}
+                                                {% if log.action_type == 'EXPORT' %}bg-info{% endif %}
+                                                {% if log.action_type == 'SEARCH' %}bg-secondary{% endif %}
+                                                {% if log.action_type == 'OTHER' %}bg-secondary{% endif %}
+                                            ">
+                                                {{ log.get_action_type_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Пользователь</th>
+                                        <td>{{ log.user.username }} ({{ log.user.get_full_name|default:"Нет имени" }})</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Дата и время</th>
+                                        <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>IP адрес</th>
+                                        <td>{{ log.ip_address|default:"Не указан" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h4 class="mb-3">Техническая информация</h4>
+                            <table class="table table-striped">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 30%">Путь запроса</th>
+                                        <td>{{ log.path|default:"Не указан" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>HTTP метод</th>
+                                        <td>
+                                            <span class="badge 
+                                                {% if log.method == 'GET' %}bg-info{% endif %}
+                                                {% if log.method == 'POST' %}bg-success{% endif %}
+                                                {% if log.method == 'PUT' %}bg-warning{% endif %}
+                                                {% if log.method == 'DELETE' %}bg-danger{% endif %}
+                                                {% if log.method == 'PATCH' %}bg-warning{% endif %}
+                                            ">
+                                                {{ log.method }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>HTTP код ответа</th>
+                                        <td>
+                                            <span class="badge 
+                                                {% if log.status_code < 300 %}bg-success{% endif %}
+                                                {% if log.status_code >= 300 and log.status_code < 400 %}bg-info{% endif %}
+                                                {% if log.status_code >= 400 and log.status_code < 500 %}bg-warning{% endif %}
+                                                {% if log.status_code >= 500 %}bg-danger{% endif %}
+                                            ">
+                                                {{ log.status_code|default:"Не указан" }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Время выполнения</th>
+                                        <td>{{ log.duration_ms|floatformat:2 }} мс</td>
+                                    </tr>
+                                    <tr>
+                                        <th>User Agent</th>
+                                        <td>
+                                            <small class="text-muted">{{ log.user_agent|default:"Не указан" }}</small>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h4 class="mb-3">Информация об объекте</h4>
+                            {% if log.content_type %}
+                                <table class="table table-striped">
+                                    <tbody>
+                                        <tr>
+                                            <th style="width: 30%">Тип объекта</th>
+                                            <td>{{ log.content_type.app_label }}.{{ log.content_type.model }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>ID объекта</th>
+                                            <td>{{ log.object_id }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    Действие не связано с конкретным объектом
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h4 class="mb-3">Дополнительные данные</h4>
+                            {% if log.additional_data %}
+                                <div class="card">
+                                    <div class="card-body">
+                                        <pre class="mb-0"><code>{{ formatted_data }}</code></pre>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    Дополнительные данные отсутствуют
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -3,7 +3,7 @@ from django.views import View
 from django.views.generic import TemplateView, FormView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import PasswordChangeForm, AuthenticationForm
-from django.contrib.auth import update_session_auth_hash, login, authenticate
+from django.contrib.auth import update_session_auth_hash, login, authenticate, logout
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
@@ -20,6 +20,14 @@ import pyotp
 
 from .forms import UserProfileForm, UserForm, TOTPForm
 from .models import UserProfile
+
+# Импортируем API для логирования из utils напрямую
+from logs.utils import (
+    log_login, 
+    log_logout, 
+    log_action_decorator, 
+    LogUserAction
+)
 
 # Главная страница (администратор) или перенаправление на поиск абонентов для остальных
 class HomeView(LoginRequiredMixin, TemplateView):
@@ -373,3 +381,45 @@ def admin_2fa_setup(request, pk):
     }
     
     return render(request, 'accounts/admin_2fa_setup.html', context)
+
+# Пример использования функции-помощника для логирования входа
+def custom_login_view(request):
+    # Логика обработки формы входа
+    if request.method == 'POST':
+        # ... код аутентификации пользователя ...
+        user = User.objects.get(username=request.POST.get('username'))
+        login(request, user)
+        
+        # Логируем вход пользователя
+        log_login(request, user)
+        
+        return redirect('home')
+    return render(request, 'accounts/login.html')
+
+# Пример использования функции-помощника для логирования выхода
+def custom_logout_view(request):
+    if request.user.is_authenticated:
+        # Логируем выход до того, как пользователь будет разлогинен
+        log_logout(request, request.user)
+    
+    logout(request)
+    return redirect('login')
+
+# Пример использования декоратора для функций
+@log_action_decorator('UPDATE')
+@login_required
+def profile_update(request):
+    if request.method == 'POST':
+        # ... обновление профиля ...
+        return redirect('profile')
+    return render(request, 'accounts/profile_form.html')
+
+# Пример использования декоратора для класса
+@method_decorator(LogUserAction('UPDATE'), name='post')
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    template_name = 'accounts/profile_form.html'
+    fields = ['first_name', 'last_name', 'email']
+    
+    def get_object(self):
+        return self.request.user

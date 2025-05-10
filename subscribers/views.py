@@ -13,6 +13,10 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.urls import reverse
 from django.db import models
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils.decorators import method_decorator
+from django.urls import reverse_lazy
 
 from .models import Subscriber, ImportHistory
 from .forms import CSVImportForm, ImportCSVForm, SearchForm
@@ -20,6 +24,18 @@ from .tasks import process_csv_import_task_impl
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# Импортируем API для логирования из utils напрямую
+from logs.utils import (
+    log_create,
+    log_update,
+    log_delete,
+    log_search,
+    log_import,
+    log_export,
+    log_action_decorator,
+    LogUserAction
+)
 
 def is_admin(user):
     return user.profile.user_type == 0  # 0 - Администратор
@@ -211,6 +227,8 @@ def cleanup_archives(request):
     # Перенаправляем на страницу истории импорта
     return redirect('subscribers:import_history')
 
+@log_action_decorator('SEARCH')
+@login_required
 def search_subscribers(request):
     """Представление для поиска абонентов"""
     form = SearchForm(request.GET or None)
@@ -282,3 +300,96 @@ def subscriber_detail(request, subscriber_id):
     }
     
     return render(request, 'subscribers/subscriber_detail.html', context)
+
+# ПРИМЕРЫ ИСПОЛЬЗОВАНИЯ API ЛОГИРОВАНИЯ - ЗАКОММЕНТИРОВАНЫ ДЛЯ ПРЕДОТВРАЩЕНИЯ ОШИБОК ИМПОРТА
+"""
+@login_required
+def import_subscribers(request):
+    if request.method == 'POST':
+        form = ImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Логика импорта из CSV
+            imported_count = 42  # Количество импортированных записей
+            
+            # Логируем импорт с дополнительными данными
+            log_import(
+                request, 
+                request.user, 
+                additional_data={
+                    'file_name': request.FILES['csv_file'].name,
+                    'records_count': imported_count
+                }
+            )
+            
+            return render(request, 'subscribers/import_success.html', {'count': imported_count})
+    else:
+        form = ImportForm()
+    
+    return render(request, 'subscribers/import.html', {'form': form})
+
+@login_required
+def export_subscribers(request):
+    # Логика экспорта в CSV
+    
+    # Логируем экспорт с дополнительными данными
+    log_export(
+        request, 
+        request.user, 
+        additional_data={
+            'format': 'csv',
+            'filters': request.GET.dict()
+        }
+    )
+    
+    # ... код генерации CSV ...
+    return response
+
+@method_decorator(LogUserAction('CREATE'), name='form_valid')
+class SubscriberCreateView(LoginRequiredMixin, CreateView):
+    model = Subscriber
+    form_class = SubscriberForm
+    template_name = 'subscribers/form.html'
+    success_url = reverse_lazy('subscribers:list')
+
+class SubscriberUpdateView(LoginRequiredMixin, UpdateView):
+    model = Subscriber
+    form_class = SubscriberForm
+    template_name = 'subscribers/form.html'
+    success_url = reverse_lazy('subscribers:list')
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        
+        # Ручное логирование изменения объекта
+        log_update(
+            self.request, 
+            self.request.user, 
+            self.object,
+            additional_data={
+                'changed_fields': form.changed_data
+            }
+        )
+        
+        return response
+
+class SubscriberDeleteView(LoginRequiredMixin, DeleteView):
+    model = Subscriber
+    template_name = 'subscribers/confirm_delete.html'
+    success_url = reverse_lazy('subscribers:list')
+    
+    def delete(self, request, *args, **kwargs):
+        subscriber = self.get_object()
+        response = super().delete(request, *args, **kwargs)
+        
+        # Ручное логирование удаления объекта
+        log_delete(
+            request,
+            request.user,
+            subscriber,
+            additional_data={
+                'subscriber_name': f"{subscriber.last_name} {subscriber.first_name}"
+            }
+        )
+        
+        return response
+"""

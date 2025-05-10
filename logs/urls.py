@@ -1,9 +1,12 @@
 from django.urls import path
-from django.views.generic import TemplateView
+from . import views
 
 app_name = 'logs'
 
 urlpatterns = [
-    # Временная заглушка для списка логов
-    path('', TemplateView.as_view(template_name='logs/list.html'), name='list'),
+    path('', views.log_list, name='list'),
+    path('<int:log_id>/', views.log_detail, name='detail'),
+    path('export/', views.export_logs, name='export'),
+    # Альтернативное представление на основе класса
+    path('view/<int:log_id>/', views.LogDetailView.as_view(), name='view'),
 ] 
