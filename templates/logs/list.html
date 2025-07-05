@@ -34,18 +34,6 @@
                         </div>
                         <div class="row g-3 mt-2">
                             <div class="col-md-3">
-                                <label for="{{ form.content_type.id_for_label }}" class="form-label">{{ form.content_type.label }}</label>
-                                {{ form.content_type }}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ form.object_id.id_for_label }}" class="form-label">{{ form.object_id.label }}</label>
-                                {{ form.object_id }}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ form.search_term.id_for_label }}" class="form-label">{{ form.search_term.label }}</label>
-                                {{ form.search_term }}
-                            </div>
-                            <div class="col-md-3">
                                 <label for="{{ form.ip_address.id_for_label }}" class="form-label">{{ form.ip_address.label }}</label>
                                 {{ form.ip_address }}
                             </div>
@@ -70,9 +58,8 @@
                                     <th>Действие</th>
                                     <th>Дата и время</th>
                                     <th>IP адрес</th>
-                                    <th>Путь</th>
-                                    <th>Метод</th>
                                     <th>Объект</th>
+                                    <th>Детали</th>
                                     <th>Действия</th>
                                 </tr>
                             </thead>
@@ -84,14 +71,15 @@
                                     <td>{{ log.get_action_type_display }}</td>
                                     <td>{{ log.action_time|date:"d.m.Y H:i:s" }}</td>
                                     <td>{{ log.ip_address|default:"-" }}</td>
-                                    <td>{{ log.path|default:"-"|truncatechars:30 }}</td>
-                                    <td>{{ log.method }}</td>
                                     <td>
                                         {% if log.content_type %}
                                             {{ log.content_type.model }} #{{ log.object_id }}
                                         {% else %}
                                             -
                                         {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ log.details|default:"-" }}
                                     </td>
                                     <td>
                                         <a href="{% url 'logs:detail' log.id %}" class="btn btn-sm btn-info">
@@ -101,7 +89,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="9" class="text-center">Логи не найдены</td>
+                                    <td colspan="8" class="text-center">Логи не найдены</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

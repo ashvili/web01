@@ -45,34 +45,6 @@ class LogFilterForm(forms.Form):
         })
     )
     
-    content_type = forms.ModelChoiceField(
-        label='Тип объекта',
-        queryset=ContentType.objects.all(),
-        required=False,
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'placeholder': 'Выберите тип объекта'
-        })
-    )
-    
-    object_id = forms.CharField(
-        label='ID объекта',
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Введите ID объекта'
-        })
-    )
-    
-    search_term = forms.CharField(
-        label='Поиск',
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Поиск по пути запроса'
-        })
-    )
-    
     ip_address = forms.CharField(
         label='IP адрес',
         required=False,
@@ -104,9 +76,6 @@ class LogFilterForm(forms.Form):
         action_type = self.cleaned_data.get('action_type')
         date_from = self.cleaned_data.get('date_from')
         date_to = self.cleaned_data.get('date_to')
-        content_type = self.cleaned_data.get('content_type')
-        object_id = self.cleaned_data.get('object_id')
-        search_term = self.cleaned_data.get('search_term')
         ip_address = self.cleaned_data.get('ip_address')
         
         if user:
@@ -120,15 +89,6 @@ class LogFilterForm(forms.Form):
         
         if date_to:
             queryset = queryset.filter(action_time__lte=date_to)
-        
-        if content_type:
-            queryset = queryset.filter(content_type=content_type)
-        
-        if object_id:
-            queryset = queryset.filter(object_id=object_id)
-        
-        if search_term:
-            queryset = queryset.filter(path__icontains=search_term)
         
         if ip_address:
             queryset = queryset.filter(ip_address__icontains=ip_address)

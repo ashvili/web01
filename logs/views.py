@@ -13,13 +13,13 @@ from .models import UserActionLog
 from .forms import LogFilterForm
 
 
-def is_admin_or_staff(user):
-    """Проверка, является ли пользователь администратором или сотрудником"""
-    return user.is_staff or user.is_superuser or getattr(user.profile, 'user_type', None) == 0
+def is_superadmin(user):
+    """Проверка, является ли пользователь только суперпользователем"""
+    return user.is_superuser
 
 
 @login_required
-@user_passes_test(is_admin_or_staff)
+@user_passes_test(is_superadmin)
 def log_list(request):
     """Представление для просмотра списка логов действий пользователей"""
     form = LogFilterForm(request.GET or None)
@@ -33,10 +33,26 @@ def log_list(request):
     paginator = Paginator(logs, 25)  # 25 записей на страницу
     page = request.GET.get('page')
     logs_page = paginator.get_page(page)
-    
+
+    # --- ДОБАВЛЕНО: формируем детали для каждого лога ---
+    logs_with_details = []
+    for log in logs_page:
+        details = ''
+        if log.action_type == 'SEARCH' and log.additional_data:
+            query = log.additional_data.get('query', {})
+            fields = []
+            for key in ['address', 'passport', 'full_name', 'phone_number']:
+                value = query.get(key)
+                if value:
+                    fields.append(str(value))
+            details = '; '.join(fields)
+        log.details = details
+        logs_with_details.append(log)
+    # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
     context = {
         'form': form,
-        'logs': logs_page,
+        'logs': logs_with_details,  # заменили на logs_with_details
         'title': 'Журнал действий пользователей',
     }
     
@@ -44,7 +60,7 @@ def log_list(request):
 
 
 @login_required
-@user_passes_test(is_admin_or_staff)
+@user_passes_test(is_superadmin)
 def log_detail(request, log_id):
     """Представление для просмотра детальной информации о логе"""
     log = get_object_or_404(UserActionLog, id=log_id)
@@ -79,7 +95,7 @@ def log_detail(request, log_id):
 
 
 @login_required
-@user_passes_test(is_admin_or_staff)
+@user_passes_test(is_superadmin)
 def export_logs(request):
     """Представление для экспорта логов в CSV"""
     form = LogFilterForm(request.GET or None)
@@ -134,8 +150,8 @@ class LogDetailView(LoginRequiredMixin, DetailView):
     pk_url_kwarg = 'log_id'
     
     def get_queryset(self):
-        # Доступ только для администраторов и сотрудников
-        if self.request.user.is_staff or self.request.user.is_superuser or getattr(self.request.user.profile, 'user_type', None) == 0:
+        # Доступ только для суперпользователя
+        if self.request.user.is_superuser:
             return super().get_queryset()
         return UserActionLog.objects.none()
     

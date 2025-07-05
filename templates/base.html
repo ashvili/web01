@@ -34,7 +34,7 @@
                         </li>
                         {% endif %}
                         <!-- Пункт меню для логов (видим только для администраторов и персонала) -->
-                        {% if user.is_authenticated and user.is_staff or user.is_superuser or user.profile.user_type == 0 %}
+                        {% if user.is_authenticated and user.is_superuser %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">
                                 <i class="fas fa-history"></i> Логи действий
