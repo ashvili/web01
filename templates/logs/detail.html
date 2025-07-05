@@ -11,9 +11,14 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="card-title">{{ title }}</h2>
-                    <a href="{% url 'logs:list' %}" class="btn btn-primary">
-                        <i class="fas fa-arrow-left me-1"></i> Вернуться к списку
-                    </a>
+                    <div>
+                        <a href="{% url 'logs:chain' log.id %}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-project-diagram me-1"></i> Цепочка
+                        </a>
+                        <a href="{% url 'logs:list' %}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-1"></i> Вернуться к списку
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -133,15 +138,25 @@
                         
                         <div class="col-md-6">
                             <h4 class="mb-3">Дополнительные данные</h4>
-                            {% if log.additional_data %}
+                            {% if additional_data_type == 'json' %}
                                 <div class="card">
                                     <div class="card-body">
                                         <pre class="mb-0"><code>{{ formatted_data }}</code></pre>
                                     </div>
                                 </div>
+                            {% elif additional_data_type == 'raw' %}
+                                <div class="alert alert-warning">
+                                    Данные не в формате JSON:<br>
+                                    <code>{{ formatted_data }}</code>
+                                </div>
+                            {% elif additional_data_type == 'error' %}
+                                <div class="alert alert-danger">
+                                    Ошибка при обработке дополнительных данных:<br>
+                                    <code>{{ formatted_data }}</code>
+                                </div>
                             {% else %}
                                 <div class="alert alert-info">
-                                    Дополнительные данные отсутствуют
+                                    Нет дополнительных данных
                                 </div>
                             {% endif %}
                         </div>

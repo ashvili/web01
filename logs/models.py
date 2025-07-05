@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from uuid import uuid4
 
 # Create your models here.
 
@@ -39,6 +40,10 @@ class UserActionLog(models.Model):
     
     # Дополнительные данные в формате JSON
     additional_data = models.JSONField('Дополнительные данные', null=True, blank=True)
+    
+    logical_session_id = models.UUIDField('Логическая сессия', null=True, blank=True, db_index=True, help_text='Группировка действий по логическим сессиям (gap-based)')
+    
+    related_log = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, db_index=True, help_text='Связанный лог (цепочка действий)')
     
     class Meta:
         verbose_name = 'Лог действий пользователя'

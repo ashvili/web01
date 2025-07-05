@@ -54,6 +54,15 @@ class LogFilterForm(forms.Form):
         })
     )
     
+    logical_session_id = forms.CharField(
+        label='Логическая сессия (UUID)',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Введите UUID логической сессии'
+        })
+    )
+    
     def clean_date_from(self):
         date_from = self.cleaned_data.get('date_from')
         if date_from:
@@ -77,6 +86,7 @@ class LogFilterForm(forms.Form):
         date_from = self.cleaned_data.get('date_from')
         date_to = self.cleaned_data.get('date_to')
         ip_address = self.cleaned_data.get('ip_address')
+        logical_session_id = self.cleaned_data.get('logical_session_id')
         
         if user:
             queryset = queryset.filter(user=user)
@@ -92,5 +102,8 @@ class LogFilterForm(forms.Form):
         
         if ip_address:
             queryset = queryset.filter(ip_address__icontains=ip_address)
+        
+        if logical_session_id:
+            queryset = queryset.filter(logical_session_id=logical_session_id)
         
         return queryset 

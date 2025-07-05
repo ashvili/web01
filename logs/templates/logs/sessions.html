@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ title }}</h2>
+<form method="get" class="mb-3">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Фильтровать</button>
+</form>
+{% if sessions %}
+    <div class="list-group mb-3">
+        {% for session in sessions %}
+            <div class="list-group-item">
+                <h5>Сессия: <code>{{ session.session_id }}</code></h5>
+                <p>
+                    <b>Пользователь:</b> {{ session.user }}<br>
+                    <b>Начало:</b> {{ session.start|date:'d.m.Y H:i:s' }}<br>
+                    <b>Конец:</b> {{ session.end|date:'d.m.Y H:i:s' }}<br>
+                    <b>Длительность:</b> {{ session.end|timesince:session.start }}<br>
+                    <b>Действий:</b> {{ session.count }}
+                </p>
+                <details>
+                    <summary>Показать действия</summary>
+                    <ul class="list-group mt-2">
+                        {% for log in session.logs %}
+                            <li class="list-group-item">
+                                <b>{{ log.action_time|date:'d.m.Y H:i:s' }}</b> —
+                                <span class="badge bg-secondary">{{ log.get_action_type_display }}</span>
+                                <span class="text-muted">{{ log.path }}</span>
+                                <a href="{% url 'logs:detail' log.id %}" class="btn btn-sm btn-outline-info ms-2">Детали</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            </div>
+        {% endfor %}
+    </div>
+    {% if sessions.has_other_pages %}
+        <nav>
+            <ul class="pagination">
+                {% if sessions.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ sessions.previous_page_number }}">Назад</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ sessions.number }}</span></li>
+                {% if sessions.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ sessions.next_page_number }}">Вперёд</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+{% else %}
+    <p>Нет сессий по заданным фильтрам.</p>
+{% endif %}
+{% endblock %} 

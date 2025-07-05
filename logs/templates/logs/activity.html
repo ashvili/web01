@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ title }}</h2>
+<form method="get" class="mb-3">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Фильтровать</button>
+    <a href="{% url 'logs:sessions' %}" class="btn btn-outline-secondary ms-2">К сессиям</a>
+</form>
+<canvas id="activityChart" width="100%" height="40"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ labels|json_script:"labels-data" }}
+{{ values|json_script:"values-data" }}
+<script>
+    const labels = JSON.parse(document.getElementById('labels-data').textContent);
+    const values = JSON.parse(document.getElementById('values-data').textContent);
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Количество действий',
+                data: values,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %} 

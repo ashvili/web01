@@ -13,6 +13,15 @@
                     <h2 class="card-title">{{ title }}</h2>
                 </div>
                 <div class="card-body">
+                    <div class="mb-3">
+                        <a href="{% url 'logs:sessions' %}" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-layer-group me-1"></i> Логические сессии
+                        </a>
+                        <a href="{% url 'logs:activity' %}" class="btn btn-outline-success me-2">
+                            <i class="fas fa-chart-bar me-1"></i> Активность
+                        </a>
+                        <span class="text-muted ms-2">Для просмотра цепочки действий откройте детали лога и перейдите по ссылке "Цепочка"</span>
+                    </div>
                     <form method="get" class="mb-4">
                         <div class="row g-3">
                             <div class="col-md-3">
