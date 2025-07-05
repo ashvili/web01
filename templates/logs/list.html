@@ -49,6 +49,20 @@
                         </div>
                     </form>
                     
+                    {# Кнопка очистки устаревших логов (только для суперпользователя) #}
+                    {% if request.user.is_superuser %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <form method="post" action="{% url 'logs:clear_old_logs' %}" onsubmit="return confirm('Удалить все логи старше {{ settings.USER_ACTION_LOG_RETENTION_DAYS|default:90 }} дней? Это действие необратимо!');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash-alt me-1"></i> Очистить устаревшие логи
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead>

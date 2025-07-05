@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.http import HttpResponse
@@ -7,7 +7,9 @@ from django.views.generic import DetailView
 import csv
 import io
 import json
-from datetime import datetime
+import datetime
+from django.conf import settings
+from django.contrib import messages
 
 from .models import UserActionLog
 from .forms import LogFilterForm
@@ -159,3 +161,17 @@ class LogDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context['title'] = f'Лог #{self.object.id}: {self.object.get_action_type_display()}'
         return context
+
+
+@login_required
+@user_passes_test(is_superadmin)
+def clear_old_logs(request):
+    """Ручная очистка устаревших логов (по кнопке)"""
+    if request.method == 'POST':
+        days = getattr(settings, 'USER_ACTION_LOG_RETENTION_DAYS', 90)
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+        deleted, _ = UserActionLog.objects.filter(action_time__lt=cutoff).delete()
+        messages.success(request, f'Удалено {deleted} логов старше {days} дней.')
+    else:
+        messages.error(request, 'Некорректный метод запроса.')
+    return redirect('logs:list')
