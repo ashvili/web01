@@ -5,33 +5,45 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Список абонентов</h1>
-        <a href="{% url 'subscribers:import_csv' %}" class="btn btn-primary">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Список абонентов</h1>
+        <a href="{% url 'subscribers:import_csv' %}" class="btn btn-outline-primary">
             <i class="bi bi-file-earmark-arrow-up"></i> Импорт из CSV
         </a>
     </div>
-    
-    <div class="card mb-4">
-        <div class="card-header bg-light">
-            <h5 class="card-title mb-0">Поиск абонентов</h5>
-        </div>
-        <div class="card-body">
-            <form method="get" action="{% url 'subscribers:list' %}" class="row g-3">
-                <div class="col-md-8">
-                    <div class="input-group">
-                        <input type="text" name="q" class="form-control" placeholder="Поиск по номеру, ФИО, адресу, IMSI..." value="{{ search_query }}">
-                        <button class="btn btn-outline-primary" type="submit">
-                            <i class="bi bi-search"></i> Найти
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-4 text-end">
+    <div class="card mb-2 border-0 shadow-none">
+        <div class="card-body p-2">
+            <form method="get" action="{% url 'subscribers:list' %}">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Поиск по номеру, ФИО, адресу, IMSI..." value="{{ search_query }}">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Найти</button>
                     {% if search_query %}
-                        <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-x-circle"></i> Сбросить
-                        </a>
+                        <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">Сбросить</a>
                     {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-4 border-0 shadow-none">
+        <div class="card-body p-2">
+            <form method="get" action="{% url 'subscribers:list' %}">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm" name="status">
+                            <option value="">Все статусы</option>
+                            <option value="active">Активен</option>
+                            <option value="inactive">Неактивен</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" class="form-control form-control-sm" name="date_from" placeholder="Дата от">
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" class="form-control form-control-sm" name="date_to" placeholder="Дата до">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Применить</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -40,7 +52,7 @@
     {% if subscribers_page %}
         <div class="table-responsive">
             <table class="table table-striped table-hover">
-                <thead>
+                <thead class="sticky-top table-light">
                     <tr>
                         <th>ID</th>
                         <th>Номер</th>

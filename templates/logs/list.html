@@ -1,11 +1,57 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load log_tags %}
+{% load widget_tweaks %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">{{ title }}</h1>
+        <a href="{% url 'logs:export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success">
+            <i class="fas fa-file-export me-1"></i> Экспорт CSV
+        </a>
+    </div>
+    <div class="card mb-2 border-0 shadow-none">
+        <div class="card-body p-2">
+            <form method="get" action="{% url 'logs:list' %}">
+                <div class="input-group">
+                    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Поиск по пути, IP, UserAgent...">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Найти</button>
+                    {% if request.GET.q %}
+                        <a href="{% url 'logs:list' %}" class="btn btn-outline-secondary">Сбросить</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-4 border-0 shadow-none">
+        <div class="card-body p-2">
+            <form method="get" action="{% url 'logs:list' %}">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        {{ form.user|add_class:"form-select form-select-sm" }}
+                    </div>
+                    <div class="col-auto">
+                        {{ form.action_type|add_class:"form-select form-select-sm" }}
+                    </div>
+                    <div class="col-auto">
+                        {{ form.date_from|add_class:"form-control form-control-sm" }}
+                    </div>
+                    <div class="col-auto">
+                        {{ form.date_to|add_class:"form-control form-control-sm" }}
+                    </div>
+                    <div class="col-auto">
+                        {{ form.ip_address|add_class:"form-control form-control-sm" }}
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Применить</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="row mb-4">
         <div class="col-lg-12">
             <div class="card">
@@ -22,41 +68,6 @@
                         </a>
                         <span class="text-muted ms-2">Для просмотра цепочки действий откройте детали лога и перейдите по ссылке "Цепочка"</span>
                     </div>
-                    <form method="get" class="mb-4">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label for="{{ form.user.id_for_label }}" class="form-label">{{ form.user.label }}</label>
-                                {{ form.user }}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ form.action_type.id_for_label }}" class="form-label">{{ form.action_type.label }}</label>
-                                {{ form.action_type }}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ form.date_from.id_for_label }}" class="form-label">{{ form.date_from.label }}</label>
-                                {{ form.date_from }}
-                            </div>
-                            <div class="col-md-3">
-                                <label for="{{ form.date_to.id_for_label }}" class="form-label">{{ form.date_to.label }}</label>
-                                {{ form.date_to }}
-                            </div>
-                        </div>
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-3">
-                                <label for="{{ form.ip_address.id_for_label }}" class="form-label">{{ form.ip_address.label }}</label>
-                                {{ form.ip_address }}
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary">Применить фильтры</button>
-                                <a href="{% url 'logs:list' %}" class="btn btn-secondary">Сбросить</a>
-                                <a href="{% url 'logs:export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success float-end">
-                                    <i class="fas fa-file-export me-1"></i> Экспорт в CSV
-                                </a>
-                            </div>
-                        </div>
-                    </form>
                     
                     {# Кнопка очистки устаревших логов (только для суперпользователя) #}
                     {% if request.user.is_superuser %}
@@ -74,7 +85,7 @@
                     
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
-                            <thead>
+                            <thead class="table-light sticky-top">
                                 <tr>
                                     <th>ID</th>
                                     <th>Пользователь</th>
