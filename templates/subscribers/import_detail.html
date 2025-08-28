@@ -125,6 +125,44 @@
                         </div>
                     </div>
                     
+                    <div class="mt-3">
+                        <div class="progress">
+                            <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <div class="d-flex justify-content-between small mt-1">
+                            <span>Обработано: <span id="processed-count">{{ import_history.processed_rows }}</span> / <span id="total-count">{{ import_history.records_count }}</span></span>
+                            <span id="status-text" class="text-muted">{{ import_history.status }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Инициализация
+                                <span id="step-init" class="badge bg-secondary">...</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Подсчёт записей
+                                <span id="step-counting" class="badge bg-secondary">...</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Архивация текущих данных
+                                <span id="step-archiving" class="badge bg-secondary">...</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Импорт записей
+                                <span id="step-processing" class="badge bg-secondary">...</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Завершение
+                                <span id="step-completed" class="badge bg-secondary">...</span>
+                            </li>
+                        </ul>
+                    </div>
+
                     {% if import_history.records_failed > 0 %}
                         <div class="alert alert-warning mt-3 mb-0">
                             <h6 class="alert-heading">Ошибки импорта</h6>
@@ -253,4 +291,94 @@
         </div>
     {% endif %}
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const importId = {{ import_history.id }};
+    const bar = document.getElementById('import-progress-bar');
+    const processedEl = document.getElementById('processed-count');
+    const totalEl = document.getElementById('total-count');
+    const statusEl = document.getElementById('status-text');
+    const resumeBtn = document.getElementById('resume-button');
+
+    function markStep(phase){
+        const steps = ['initializing','counting','archiving','processing','completed'];
+        steps.forEach(s => {
+            const el = document.getElementById('step-' + s);
+            if (!el) return;
+            el.classList.remove('bg-secondary','bg-info','bg-success');
+            el.textContent = '...';
+        });
+        const currentIdx = steps.indexOf(phase);
+        steps.forEach((s, idx) => {
+            const el = document.getElementById('step-' + s);
+            if (!el) return;
+            if (currentIdx === -1) {
+                el.classList.add('bg-secondary');
+                el.textContent = '...';
+            } else if (idx < currentIdx) {
+                el.classList.add('bg-success');
+                el.textContent = 'OK';
+            } else if (idx === currentIdx) {
+                el.classList.add('bg-info');
+                el.textContent = 'Выполняется';
+            } else {
+                el.classList.add('bg-secondary');
+                el.textContent = '...';
+            }
+        });
+    }
+
+    function updateUI(data){
+        const total = data.total || 0;
+        const processed = data.processed || 0;
+        if (total > 0) {
+            const pct = typeof data.progress_percent === 'number' ? data.progress_percent : Math.floor((processed / total) * 100);
+            bar.style.width = pct + '%';
+            bar.setAttribute('aria-valuenow', pct);
+            bar.textContent = pct + '%';
+        } else {
+            bar.style.width = '0%';
+            bar.setAttribute('aria-valuenow', 0);
+            bar.textContent = '0%';
+        }
+        processedEl.textContent = processed;
+        totalEl.textContent = total;
+        statusEl.textContent = data.status + (data.phase ? ' (' + data.phase + ')' : '');
+
+        if (data.phase) markStep(data.phase);
+
+        if (data.status === 'failed' || data.status === 'pending') {
+            resumeBtn.style.display = 'inline-block';
+        } else {
+            resumeBtn.style.display = 'none';
+        }
+    }
+
+    function poll(){
+        fetch('{% url "subscribers:import_status" 0 %}'.replace('0', importId))
+            .then(r => r.json())
+            .then(data => {
+                updateUI(data);
+                if (data.status === 'processing') {
+                    setTimeout(poll, 1500);
+                }
+            })
+            .catch(() => setTimeout(poll, 3000));
+    }
+
+    function getCookie(name){
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    resumeBtn?.addEventListener('click', function(){
+        fetch('{% url "subscribers:import_resume" 0 %}'.replace('0', importId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
+            .then(r => r.json())
+            .then(() => poll());
+    });
+
+    poll();
+});
+</script>
 {% endblock %} 

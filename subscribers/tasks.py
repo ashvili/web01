@@ -3,6 +3,10 @@ import io
 import datetime
 import logging
 import re
+import threading
+from pathlib import Path
+from typing import Optional
+from django.conf import settings
 from django.db import transaction, connection
 from django.utils import timezone
 
@@ -10,6 +14,9 @@ from .models import Subscriber, ImportHistory
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# Регистр активных импортов, чтобы не запускать параллельно один и тот же
+_RUNNING_IMPORTS = {}
 
 # Имитация задачи Celery с помощью обычной функции
 def process_csv_import_task(csv_data, import_history_id, delimiter, encoding, has_header, update_existing):
@@ -416,6 +423,293 @@ def process_csv_import_task_impl(csv_data, import_history_id, delimiter, encodin
             pass
         
         return {"success": False, "error": str(e)}
+
+# === РЕЖИМ ПОТОКОВОГО (РЕЗЮМИРУЕМОГО) ИМПОРТА ===
+
+def _count_total_records(file_path: Path, delimiter: str, has_header: bool) -> int:
+    """Быстрый подсчёт числа записей в CSV по признаку ID в первом столбце."""
+    id_pattern = re.compile(r'^\s*\d+')
+    total = 0
+    with file_path.open('r', encoding='utf-8', errors='ignore') as fh:
+        for idx, line in enumerate(fh, start=1):
+            if idx == 1 and has_header:
+                continue
+            if not line.strip():
+                continue
+            first_col = line.split(delimiter)[0]
+            if id_pattern.match(first_col):
+                total += 1
+    return total
+
+def _process_record_row(parsed, import_history: ImportHistory, created_failed_acc):
+    created_count, failed_count, errors = created_failed_acc
+    try:
+        # Нормализация даты
+        if parsed['birth_date'] is not None:
+            from datetime import date
+            if not isinstance(parsed['birth_date'], date) and hasattr(parsed['birth_date'], 'date'):
+                parsed['birth_date'] = parsed['birth_date'].date()
+
+        with transaction.atomic():
+            new_subscriber = Subscriber(
+                original_id=parsed['original_id'],
+                number=parsed['number'],
+                last_name=parsed['last_name'],
+                first_name=parsed['first_name'],
+                middle_name=parsed['middle_name'],
+                address=parsed['address'],
+                memo1=parsed['memo1'],
+                memo2=parsed['memo2'],
+                birth_place=parsed['birth_place'],
+                birth_date=parsed['birth_date'],
+                imsi=parsed['imsi'],
+                import_history=import_history,
+            )
+            new_subscriber.save()
+        created_count += 1
+    except Exception as e:  # noqa: BLE001 - логируем и продолжаем
+        failed_count += 1
+        errors.append(f"Ошибка при создании записи: {str(e)}")
+    return created_count, failed_count, errors
+
+def _parse_line_to_record(row_values, row_count, errors):
+    """Преобразование массива строк в словарь полей."""
+    try:
+        if len(row_values) < 8:
+            errors.append(f"Строка {row_count}: неверное количество полей ({len(row_values)})")
+            return None
+        original_id = None
+        original_id_str = row_values[0].strip() if row_values[0] else None
+        if original_id_str:
+            try:
+                original_id = int(original_id_str)
+            except ValueError:
+                errors.append(f"Некорректный ID в строке {row_count}: {original_id_str}")
+        number = row_values[1].strip() if len(row_values) > 1 else ""
+        last_name = row_values[2].strip() if len(row_values) > 2 else ""
+        first_name = row_values[3].strip() if len(row_values) > 3 else ""
+        middle_name = row_values[4].strip() if len(row_values) > 4 else None
+        address = row_values[5].strip() if len(row_values) > 5 else None
+        memo1 = row_values[6].strip() if len(row_values) > 6 else None
+        memo2 = row_values[7].strip() if len(row_values) > 7 else None
+        birth_place = row_values[8].strip() if len(row_values) > 8 else None
+        imsi = row_values[10].strip() if len(row_values) > 10 else None
+
+        # Дата рождения
+        birth_date = None
+        if len(row_values) > 9 and row_values[9] and row_values[9].strip():
+            from datetime import datetime, date
+            birth_date_str = row_values[9].strip()
+            if birth_date_str.upper() == 'NULL':
+                birth_date = None
+            else:
+                if ' ' in birth_date_str:
+                    date_part = birth_date_str.split(' ')[0]
+                else:
+                    date_part = birth_date_str
+                if '-' in date_part:
+                    parts = date_part.split('-')
+                    if len(parts) == 3:
+                        year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                        if 1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2100:
+                            try:
+                                birth_date = date(year, month, day)
+                            except ValueError as ve:
+                                errors.append(f"Некорректная дата '{birth_date_str}' в строке {row_count}: {ve}")
+                        else:
+                            errors.append(f"Неверные значения дня/месяца/года в дате '{birth_date_str}' (строка {row_count})")
+                    else:
+                        errors.append(f"Неверный формат даты '{birth_date_str}' в строке {row_count}")
+                else:
+                    try:
+                        parsed_date = datetime.strptime(birth_date_str, '%Y-%m-%d %H:%M:%S.%f')
+                        birth_date = parsed_date.date()
+                    except ValueError:
+                        try:
+                            parsed_date = datetime.strptime(birth_date_str, '%Y-%m-%d')
+                            birth_date = parsed_date.date()
+                        except ValueError:
+                            errors.append(f"Не удалось разобрать дату '{birth_date_str}' в строке {row_count}")
+
+        if not last_name or not first_name:
+            errors.append(f"Строка {row_count}: отсутствуют обязательные поля (фамилия или имя)")
+            return None
+
+        return {
+            'original_id': original_id,
+            'number': number,
+            'last_name': last_name,
+            'first_name': first_name,
+            'middle_name': middle_name,
+            'address': address,
+            'memo1': memo1,
+            'memo2': memo2,
+            'birth_place': birth_place,
+            'birth_date': birth_date,
+            'imsi': imsi,
+        }
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"Ошибка при обработке строки {row_count}: {str(e)}")
+        return None
+
+def process_csv_import_stream(import_history_id: int) -> None:
+    """Потоковый импорт с возможностью резюме по ImportHistory.processed_rows."""
+    import_history = ImportHistory.objects.get(id=import_history_id)
+    import_history.status = 'processing'
+    import_history.phase = 'initializing'
+    import_history.save()
+
+    # Путь к загруженному файлу
+    if not import_history.uploaded_file:
+        import_history.status = 'failed'
+        import_history.error_message = 'Не найден загруженный файл для импорта'
+        import_history.save()
+        return
+
+    file_path = Path(import_history.uploaded_file.path)
+    delimiter = import_history.delimiter
+    encoding = import_history.encoding or 'utf-8'
+    has_header = import_history.has_header
+
+    # Подсчитываем общее количество записей один раз
+    if not import_history.records_count:
+        try:
+            import_history.phase = 'counting'
+            import_history.save()
+            total = _count_total_records(file_path, delimiter, has_header)
+            import_history.records_count = total
+            import_history.progress_percent = 0
+            import_history.save()
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Не удалось подсчитать количество записей: {e}")
+
+    # Архивируем один раз
+    if not getattr(import_history, 'archived_done', False):
+        try:
+            import_history.phase = 'archiving'
+            import_history.save()
+            archive_table_name = f"subscribers_subscriber_archive_{int(timezone.now().timestamp())}"
+            with connection.cursor() as cursor:
+                cursor.execute(f"""
+                    CREATE TABLE {archive_table_name} AS 
+                    SELECT * FROM subscribers_subscriber
+                """)
+                cursor.execute("DELETE FROM subscribers_subscriber")
+            import_history.archive_table_name = archive_table_name
+            import_history.archived_done = True
+            import_history.save()
+        except Exception as e:  # noqa: BLE001
+            import_history.status = 'failed'
+            import_history.error_message = f"Ошибка при архивации данных: {str(e)}"
+            import_history.save()
+            return
+
+    id_pattern = re.compile(r'^\s*\d+')
+    processed_rows_start = import_history.processed_rows or 0
+
+    created_count = import_history.records_created or 0
+    failed_count = import_history.records_failed or 0
+    errors: list[str] = []
+
+    # Читаем файл построчно, собирая логические строки записей
+    logical_row_index = 0
+    current_line: Optional[str] = None
+
+    try:
+        with file_path.open('r', encoding=encoding, errors='ignore') as fh:
+            import_history.phase = 'processing'
+            import_history.save()
+            physical_line_idx = 0
+            for raw_line in fh:
+                physical_line_idx += 1
+                if physical_line_idx == 1 and has_header:
+                    # заголовок
+                    continue
+                if not raw_line.strip():
+                    continue
+                first_col = raw_line.split(delimiter)[0]
+                is_new_record = bool(id_pattern.match(first_col))
+                if is_new_record:
+                    if current_line is not None:
+                        # Завершаем предыдущую логическую запись
+                        logical_row_index += 1
+                        if logical_row_index > processed_rows_start:
+                            # Обработка записи
+                            csv_io = io.StringIO(current_line)
+                            reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                            row_values = next(reader, None)
+                            if row_values is not None:
+                                parsed = _parse_line_to_record(row_values, logical_row_index, errors)
+                                if parsed:
+                                    created_count, failed_count, errors = _process_record_row(parsed, import_history, (created_count, failed_count, errors))
+                            import_history.processed_rows = logical_row_index
+                            import_history.records_created = created_count
+                            import_history.records_failed = failed_count
+                            if import_history.records_count:
+                                pct = int((logical_row_index / import_history.records_count) * 100)
+                                if pct > 100:
+                                    pct = 100
+                                import_history.progress_percent = pct
+                            if logical_row_index % 50 == 0:
+                                import_history.save()
+                        # Начинаем новую запись
+                    current_line = raw_line.strip()
+                else:
+                    if current_line is not None:
+                        current_line = current_line + " " + raw_line.strip()
+                    else:
+                        # Строка без текущей записи — пропускаем
+                        continue
+
+            # Финализируем последнюю запись
+            if current_line is not None:
+                logical_row_index += 1
+                if logical_row_index > processed_rows_start:
+                    csv_io = io.StringIO(current_line)
+                    reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                    row_values = next(reader, None)
+                    if row_values is not None:
+                        parsed = _parse_line_to_record(row_values, logical_row_index, errors)
+                        if parsed:
+                            created_count, failed_count, errors = _process_record_row(parsed, import_history, (created_count, failed_count, errors))
+                import_history.processed_rows = logical_row_index
+                import_history.records_created = created_count
+                import_history.records_failed = failed_count
+                if import_history.records_count:
+                    pct = int((logical_row_index / import_history.records_count) * 100)
+                    if pct > 100:
+                        pct = 100
+                    import_history.progress_percent = pct
+
+        # Завершение
+        import_history.status = 'completed'
+        import_history.phase = 'completed'
+        import_history.progress_percent = 100
+        if errors:
+            msg = "\n".join(errors[:20])
+            if len(errors) > 20:
+                msg += f"\n... ещё {len(errors) - 20} ошибок"
+            import_history.error_message = msg
+        import_history.save()
+    except Exception as e:  # noqa: BLE001
+        import_history.status = 'failed'
+        import_history.error_message = f"Непредвиденная ошибка: {str(e)}"
+        import_history.save()
+    finally:
+        _RUNNING_IMPORTS.pop(import_history_id, None)
+
+def start_import_async(import_history_id: int) -> bool:
+    """Стартует фоновый импорт, если он ещё не идёт. Возвращает True, если стартовали сейчас."""
+    if _RUNNING_IMPORTS.get(import_history_id):
+        return False
+    t = threading.Thread(target=process_csv_import_stream, args=(import_history_id,), daemon=True)
+    _RUNNING_IMPORTS[import_history_id] = t
+    t.start()
+    return True
+
+def is_import_running(import_history_id: int) -> bool:
+    t = _RUNNING_IMPORTS.get(import_history_id)
+    return t.is_alive() if t else False
 
 # Имитация задачи Celery для очистки устаревших данных
 def cleanup_old_import_data(days=30):

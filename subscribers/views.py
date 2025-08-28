@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.urls import reverse
 from django.db import models
@@ -20,7 +20,7 @@ from django.urls import reverse_lazy
 
 from .models import Subscriber, ImportHistory
 from .forms import CSVImportForm, ImportCSVForm, SearchForm
-from .tasks import process_csv_import_task_impl
+from .tasks import process_csv_import_task_impl, start_import_async, is_import_running
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -98,35 +98,9 @@ def import_csv(request):
                     messages.error(request, 'Загруженный файл пуст')
                     return render(request, 'subscribers/import_csv.html', {'form': form})
                 
-                # Читаем содержимое файла в виде строки
-                try:
-                    csv_data = csv_file.read().decode(encoding)
-                    
-                    # Проверяем, что файл действительно можно прочитать как CSV
-                    import csv
-                    import io
-                    csv_io = io.StringIO(csv_data)
-                    reader = csv.reader(csv_io, delimiter=delimiter)
-                    
-                    # Попытка прочитать первые строки для проверки
-                    rows = []
-                    for i, row in enumerate(reader):
-                        if i >= 5:  # Читаем только первые 5 строк для проверки
-                            break
-                        rows.append(row)
-                    
-                    if not rows:
-                        messages.error(request, 'Не удалось прочитать данные из CSV файла. Проверьте формат и кодировку.')
-                        return render(request, 'subscribers/import_csv.html', {'form': form})
-                    
-                except UnicodeDecodeError:
-                    messages.error(request, f'Не удалось декодировать файл в кодировке {encoding}. Попробуйте другую кодировку.')
-                    return render(request, 'subscribers/import_csv.html', {'form': form})
-                except Exception as e:
-                    messages.error(request, f'Ошибка при обработке файла: {str(e)}')
-                    return render(request, 'subscribers/import_csv.html', {'form': form})
+                # Не читаем файл целиком — сохраняем как есть, валидацию/подсчёт сделает фон
                 
-                # Создаем запись для отслеживания импорта
+                # Создаем запись для отслеживания импорта и сохраняем файл
                 import_history = ImportHistory.objects.create(
                     file_name=csv_file.name,
                     file_size=csv_file.size,
@@ -134,32 +108,20 @@ def import_csv(request):
                     encoding=encoding,
                     has_header=has_header,
                     created_by=request.user,
-                    status='pending'
+                    status='pending',
+                    phase='pending'
                 )
-                
-                # Вызываем функцию импорта напрямую (без Celery)
-                from subscribers.tasks import process_csv_import_task_impl
-                
-                result = process_csv_import_task_impl(
-                    csv_data,  # Передаем строковое содержимое CSV
-                    import_history.id, 
-                    delimiter, 
-                    encoding, 
-                    has_header, 
-                    False  # update_existing=False - заменять все записи новыми
-                )
-                
-                if result and result.get('success', False):
-                    messages.success(
-                        request, 
-                        f'Импорт успешно завершен. Создано: {result["created"]} записей. '
-                        f'Ошибок: {result["failed"]} из {result["total"]} записей. '
-                        f'Предыдущая таблица архивирована.'
-                    )
-                    return redirect('subscribers:import_detail', import_id=import_history.id)
+                # присвоим файл
+                import_history.uploaded_file = csv_file
+                import_history.save()
+
+                # Стартуем асинхронный импорт
+                started_now = start_import_async(import_history.id)
+                if started_now:
+                    messages.info(request, 'Импорт запущен в фоне. Можно следить за прогрессом.')
                 else:
-                    messages.error(request, f'Ошибка при импорте: {result.get("error", "Неизвестная ошибка")}')
-                    return redirect('subscribers:import_detail', import_id=import_history.id)
+                    messages.info(request, 'Импорт уже выполняется.')
+                return redirect('subscribers:import_detail', import_id=import_history.id)
                 
             except Exception as e:
                 messages.error(request, f'Произошла ошибка: {str(e)}')
@@ -203,6 +165,35 @@ def import_detail(request, import_id):
     }
     
     return render(request, 'subscribers/import_detail.html', context)
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+def import_status(request, import_id):
+    """JSON-статус прогресса импорта."""
+    import_history = get_object_or_404(ImportHistory, id=import_id)
+    data = {
+        'status': import_history.status,
+        'phase': getattr(import_history, 'phase', ''),
+        'processed': import_history.processed_rows,
+        'total': import_history.records_count,
+        'progress_percent': getattr(import_history, 'progress_percent', 0),
+        'running': is_import_running(import_history.id),
+        'error_message': import_history.error_message or '',
+    }
+    return JsonResponse(data)
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+def import_resume(request, import_id):
+    """Возобновить импорт с последнего чекпойнта."""
+    import_history = get_object_or_404(ImportHistory, id=import_id)
+    if import_history.status in ('completed', 'processing'):
+        return JsonResponse({'ok': True, 'started': False, 'reason': 'already in state'}, status=200)
+    import_history.status = 'pending'
+    import_history.phase = 'pending'
+    import_history.save()
+    started = start_import_async(import_history.id)
+    return JsonResponse({'ok': True, 'started': started})
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')

@@ -15,6 +15,8 @@ urlpatterns = [
     
     # Детали импорта
     path('import/history/<int:import_id>/', views.import_detail, name='import_detail'),
+    path('import/status/<int:import_id>/', views.import_status, name='import_status'),
+    path('import/resume/<int:import_id>/', views.import_resume, name='import_resume'),
     path('import/cleanup-archives/', views.cleanup_archives, name='cleanup_archives'),
     
     # Поиск абонентов
