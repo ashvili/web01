@@ -12,6 +12,134 @@ from django.utils import timezone
 
 from .models import Subscriber, ImportHistory, ImportError
 
+def _create_temp_table(temp_table_name):
+    """Создает временную таблицу с той же структурой, что и основная таблица subscribers_subscriber"""
+    logger.info(f"🏗️ Создание временной таблицы: {temp_table_name}")
+    with connection.cursor() as cursor:
+        # Создаем временную таблицу без первичного ключа, чтобы избежать проблем с NULL в id
+        cursor.execute(f"""
+            CREATE TABLE {temp_table_name} (
+                original_id INTEGER,
+                number VARCHAR(50),
+                last_name VARCHAR(255),
+                first_name VARCHAR(255),
+                middle_name VARCHAR(255),
+                address TEXT,
+                memo1 VARCHAR(255),
+                memo2 VARCHAR(255),
+                birth_place VARCHAR(255),
+                birth_date DATE,
+                imsi VARCHAR(50),
+                gender VARCHAR(1),
+                email VARCHAR(254),
+                is_active BOOLEAN,
+                created_at TIMESTAMP WITH TIME ZONE,
+                updated_at TIMESTAMP WITH TIME ZONE,
+                import_history_id INTEGER
+            )
+        """)
+    logger.info(f"✅ Временная таблица {temp_table_name} создана успешно")
+    return temp_table_name
+
+def _insert_into_temp_table(temp_table_name, record_data):
+    """Вставляет запись во временную таблицу"""
+    logger.debug(f"📥 Вставка записи ID={record_data['original_id']} в {temp_table_name}")
+    with connection.cursor() as cursor:
+        cursor.execute(f"""
+            INSERT INTO {temp_table_name} (
+                original_id, number, last_name, first_name, middle_name, 
+                address, memo1, memo2, birth_place, birth_date, imsi, 
+                gender, email, is_active, created_at, updated_at, import_history_id
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """, [
+            record_data['original_id'],
+            record_data['number'],
+            record_data['last_name'],
+            record_data['first_name'],
+            record_data['middle_name'],
+            record_data['address'],
+            record_data['memo1'],
+            record_data['memo2'],
+            record_data['birth_place'],
+            record_data['birth_date'],
+            record_data['imsi'],
+            None,  # gender
+            None,  # email
+            True,  # is_active
+            timezone.now(),  # created_at
+            timezone.now(),  # updated_at
+            record_data['import_history_id']
+        ])
+    logger.debug(f"✅ Запись ID={record_data['original_id']} вставлена в {temp_table_name}")
+
+def _finalize_import(import_history):
+    """Финализирует импорт: архивирует основную таблицу и заменяет ее данными из временной"""
+    temp_table_name = import_history.temp_table_name
+    archive_table_name = f"subscribers_subscriber_archive_{int(timezone.now().timestamp())}"
+    
+    logger.info(f"🏁 Начинаем финализацию импорта...")
+    logger.info(f"📁 Временная таблица: {temp_table_name}")
+    logger.info(f"📦 Архивная таблица: {archive_table_name}")
+    
+    with connection.cursor() as cursor:
+        try:
+            # 1. Создаем архивную копию основной таблицы
+            logger.info("📋 Создание архивной копии основной таблицы...")
+            cursor.execute(f"""
+                CREATE TABLE {archive_table_name} AS 
+                SELECT * FROM subscribers_subscriber
+            """)
+            logger.info("✅ Архивная копия создана")
+            
+            # 2. Очищаем основную таблицу
+            logger.info("🗑️ Очистка основной таблицы...")
+            cursor.execute("DELETE FROM subscribers_subscriber")
+            logger.info("✅ Основная таблица очищена")
+            
+            # 3. Копируем данные из временной таблицы в основную (без поля id - оно будет сгенерировано автоматически)
+            logger.info("📤 Копирование данных из временной таблицы в основную...")
+            cursor.execute(f"""
+                INSERT INTO subscribers_subscriber (
+                    original_id, number, last_name, first_name, middle_name,
+                    address, memo1, memo2, birth_place, birth_date, imsi,
+                    gender, email, is_active, created_at, updated_at, import_history_id
+                )
+                SELECT 
+                    original_id, number, last_name, first_name, middle_name,
+                    address, memo1, memo2, birth_place, birth_date, imsi,
+                    gender, email, is_active, created_at, updated_at, import_history_id
+                FROM {temp_table_name}
+            """)
+            logger.info("✅ Данные скопированы в основную таблицу")
+            
+            # 4. Удаляем временную таблицу
+            logger.info("🗑️ Удаление временной таблицы...")
+            cursor.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
+            logger.info("✅ Временная таблица удалена")
+            
+            # 5. Обновляем ImportHistory
+            import_history.archive_table_name = archive_table_name
+            import_history.temp_table_name = None
+            import_history.save()
+            
+            logger.info("🎉 Финализация импорта завершена успешно!")
+            return True
+        except Exception as e:
+            # В случае ошибки оставляем все как есть
+            logger.error(f"❌ Ошибка при финализации импорта: {str(e)}")
+            raise Exception(f"Ошибка при финализации импорта: {str(e)}")
+
+def _cleanup_temp_table(temp_table_name):
+    """Удаляет временную таблицу при ошибке или отмене импорта"""
+    if temp_table_name:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
+        except Exception as e:
+            logger.warning(f"Не удалось удалить временную таблицу {temp_table_name}: {str(e)}")
+
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
@@ -427,18 +555,68 @@ def process_csv_import_task_impl(csv_data, import_history_id, delimiter, encodin
 # === РЕЖИМ ПОТОКОВОГО (РЕЗЮМИРУЕМОГО) ИМПОРТА ===
 
 def _count_total_records(file_path: Path, delimiter: str, has_header: bool) -> int:
-    """Быстрый подсчёт числа записей в CSV по признаку ID в первом столбце."""
-    id_pattern = re.compile(r'^\s*\d+')
+    """
+    Подсчёт числа логических записей в CSV с учетом умного склеивания.
+    Использует ту же логику, что и _process_csv_lines_with_smart_joining.
+    """
+    logger.info(f"📊 Подсчет общего количества записей с умным склеиванием...")
+    
     total = 0
+    
     with file_path.open('r', encoding='utf-8', errors='ignore') as fh:
-        for idx, line in enumerate(fh, start=1):
-            if idx == 1 and has_header:
+        # Читаем все строки сразу для возможности предпросмотра
+        all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
+        
+        logger.info(f"📁 Файл прочитан для подсчета: {len(all_lines)} физических строк")
+        
+        i = 0
+        while i < len(all_lines):
+            current_line = _clean_line_for_combining(all_lines[i])
+            physical_line_idx = i + 1  # Номер строки в файле (1-based)
+            
+            # Пропускаем заголовок
+            if physical_line_idx == 1 and has_header:
+                i += 1
                 continue
-            if not line.strip():
+                
+            # Пропускаем пустые строки
+            if not current_line:
+                i += 1
                 continue
-            first_col = line.split(delimiter)[0]
-            if id_pattern.match(first_col):
+            
+            # Проверяем, является ли текущая строка валидной (ID + телефонный номер)
+            is_current_valid = _is_valid_line(current_line, delimiter)
+            
+            if is_current_valid:
+                # Текущая строка валидная - считаем как одну логическую запись
                 total += 1
+                
+                # Пропускаем все следующие строки до следующей валидной строки
+                j = i + 1
+                while j < len(all_lines):
+                    next_line = _clean_line_for_combining(all_lines[j])
+                    
+                    # Пропускаем пустые строки
+                    if not next_line:
+                        j += 1
+                        continue
+                    
+                    is_next_valid = _is_valid_line(next_line, delimiter)
+                    
+                    if is_next_valid:
+                        # Следующая строка валидная - прекращаем поиск
+                        break
+                    else:
+                        # Следующая строка не валидная - пропускаем ее (это продолжение текущей записи)
+                        j += 1
+                
+                # Переходим к найденной валидной строке или к концу файла
+                i = j
+            else:
+                # Текущая строка не валидная - пропускаем (не должно быть при правильной логике)
+                i += 1
+    
+    logger.info(f"📊 Подсчет завершен: {total} логических записей из {len(all_lines)} физических строк")
     return total
 
 def _process_record_row(parsed, import_history: ImportHistory, created_failed_acc):
@@ -457,37 +635,79 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
             if not isinstance(parsed['birth_date'], date) and hasattr(parsed['birth_date'], 'date'):
                 parsed['birth_date'] = parsed['birth_date'].date()
 
-        with transaction.atomic():
-            new_subscriber = Subscriber(
-                original_id=parsed['original_id'],
-                number=parsed['number'],
-                last_name=parsed['last_name'],
-                first_name=parsed['first_name'],
-                middle_name=parsed['middle_name'],
-                address=parsed['address'],
-                memo1=parsed['memo1'],
-                memo2=parsed['memo2'],
-                birth_place=parsed['birth_place'],
-                birth_date=parsed['birth_date'],
-                imsi=parsed['imsi'],
-                import_history=import_history,
-            )
-            new_subscriber.save()
+        logger.info(f"💾 Подготовка данных для записи: ID={parsed.get('original_id')}, номер={parsed.get('number')}")
+
+        # Подготавливаем данные для вставки во временную таблицу
+        record_data = {
+            'original_id': parsed['original_id'],
+            'number': parsed['number'],
+            'last_name': parsed['last_name'],
+            'first_name': parsed['first_name'],
+            'middle_name': parsed['middle_name'],
+            'address': parsed['address'],
+            'memo1': parsed['memo1'],
+            'memo2': parsed['memo2'],
+            'birth_place': parsed['birth_place'],
+            'birth_date': parsed['birth_date'],
+            'imsi': parsed['imsi'],
+            'import_history_id': import_history.id,
+        }
+        
+        logger.info(f"📝 Вставка во временную таблицу {import_history.temp_table_name}...")
+        
+        # Вставляем во временную таблицу
+        _insert_into_temp_table(import_history.temp_table_name, record_data)
         created_count += 1
+        
+        logger.info(f"✅ Запись успешно сохранена во временную таблицу")
+        
     except Exception as e:  # noqa: BLE001 - логируем и продолжаем
         failed_count += 1
         error_msg = f"Ошибка при создании записи: {str(e)}"
         errors.append(error_msg)
+        logger.error(f"❌ Ошибка сохранения записи: {error_msg}")
+        
         # Сохраняем исходные данные для анализа
         raw_data = f"ID: {parsed.get('original_id', 'N/A')}, Номер: {parsed.get('number', 'N/A')}, ФИО: {parsed.get('last_name', 'N/A')} {parsed.get('first_name', 'N/A')} {parsed.get('middle_name', 'N/A')}, Адрес: {parsed.get('address', 'N/A')}, Дата: {parsed.get('birth_date', 'N/A')}"
+        
+        # Проверяем размер raw_data
+        raw_data_size = len(raw_data)
+        if raw_data_size > 4000:
+            logger.warning(f"⚠️ Большой размер raw_data в _process_record_row: {raw_data_size} символов")
+        
         ImportError.objects.create(
             import_history=import_history,
             import_session_id=import_history.import_session_id,
             row_index=import_history.processed_rows + 1,
             message=error_msg,
-            raw_data=raw_data
+            raw_data=raw_data[:5000]  # Увеличиваем лимит до 5000 символов
         )
     return created_count, failed_count, errors
+
+def _clean_line_for_combining(line):
+    """
+    Очищает строку от лишних пробелов и непечатных символов.
+    Убирает множественные пробелы, табуляции, переносы строк.
+    Сохраняет структуру CSV (разделители, кавычки).
+    """
+    if not line:
+        return ""
+    
+    # Заменяем табуляции и переносы строк на пробелы (но сохраняем разделители)
+    cleaned = re.sub(r'[\t\r\n]+', ' ', line)
+    
+    # Убираем множественные пробелы, но сохраняем пробелы вокруг разделителей
+    # Это важно для CSV, где пробелы могут быть частью данных
+    cleaned = re.sub(r' +', ' ', cleaned)
+    
+    # Убираем пробелы в начале и конце строки
+    cleaned = cleaned.strip()
+    
+    # Убираем лишние пробелы вокруг разделителей (но не внутри кавычек)
+    # Это сложная операция, поэтому делаем базовую очистку
+    cleaned = re.sub(r'\s*,\s*', ',', cleaned)  # Убираем пробелы вокруг запятых
+    
+    return cleaned
 
 def _extract_id_from_line(line, delimiter):
     """Извлекает ID из первого поля строки."""
@@ -496,42 +716,99 @@ def _extract_id_from_line(line, delimiter):
     
     try:
         first_field = line.split(delimiter)[0].strip()
-        return int(first_field) if first_field else None
+        if not first_field:
+            return None
+        
+        # Проверяем, что это целое число
+        id_value = int(first_field)
+        if id_value <= 0:
+            return None
+        
+        return id_value
     except (ValueError, IndexError):
         return None
 
-def _is_valid_id_field_value(id_value, expected_id=None):
+def _is_valid_line(line, delimiter):
+    """Проверяет, является ли строка валидной (ID + телефонный номер)."""
+    if not line or not line.strip():
+        return False
+    
+    try:
+        # Разбиваем строку по разделителю
+        fields = line.split(delimiter)
+        if len(fields) < 2:
+            return False
+        
+        # Проверяем первое поле (ID)
+        if not _is_valid_id_field(fields[0]):
+            return False
+        
+        # Проверяем второе поле (телефонный номер)
+        if not _is_valid_phone_field(fields[1]):
+            return False
+        
+        return True
+    except Exception:
+        return False
+
+def _is_valid_id_field_value(id_value):
     """Проверяет, является ли ID корректным значением."""
     if id_value is None or id_value <= 0:
         return False
-    
-    if expected_id is not None:
-        # ID должен быть больше ожидаемого (разумная последовательность)
-        if id_value <= expected_id:
-            return False
-        # ID не должен сильно отличаться от ожидаемого (разница не более 1000)
-        if id_value - expected_id > 1000:
-            return False
-    
     return True
 
-def _is_valid_id_field(field_value, expected_id=None):
+def _is_valid_id_field(field_value):
     """Проверяет, является ли первое поле корректным ID."""
     if not field_value or not field_value.strip():
         return False
     
     try:
         parsed_id = int(field_value.strip())
-        return _is_valid_id_field_value(parsed_id, expected_id)
+        return _is_valid_id_field_value(parsed_id)
     except ValueError:
         return False
+
+def _is_valid_phone_field(field_value):
+    """Проверяет, является ли поле корректным телефонным номером."""
+    if not field_value or not field_value.strip():
+        return False
+    
+    # Убираем все пробелы, дефисы, скобки и другие символы
+    phone = re.sub(r'[\s\-\(\)\+]', '', field_value.strip())
+    
+    # Проверяем, что остались только цифры
+    if not phone.isdigit():
+        return False
+    
+    # Проверяем длину (обычно 10-15 цифр)
+    if len(phone) < 10 or len(phone) > 15:
+        return False
+    
+    return True
+
+def _is_valid_csv_line(row_values):
+    """Проверяет, является ли строка CSV валидной."""
+    if not row_values or len(row_values) < 2:
+        return False
+    
+    # Проверяем первое поле (ID)
+    if not _is_valid_id_field(row_values[0]):
+        return False
+    
+    # Проверяем второе поле (телефонный номер)
+    if not _is_valid_phone_field(row_values[1]):
+        return False
+    
+    return True
 
 def _try_parse_csv_line(line, delimiter):
     """Пробует распарсить строку как CSV и вернуть поля."""
     try:
         import csv
         import io
-        csv_io = io.StringIO(line)
+        # Очищаем строку от лишних пробелов перед парсингом
+        cleaned_line = _clean_line_for_combining(line)
+        csv_io = io.StringIO(cleaned_line)
         reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
         return next(reader, None)
     except Exception:
@@ -547,37 +824,60 @@ def _try_process_combined_line(combined_line, logical_row_index, delimiter, impo
         (success, actual_id) - success указывает на успех, actual_id - фактический ID записи
     """
     errors = []
+    logger.info(f"🔍 Анализ объединенной строки для записи {logical_row_index}...")
+    
     try:
         # Пытаемся распарсить объединенную строку
+        logger.info(f"📝 Парсинг CSV: {combined_line[:200]}...")
         row_values = _try_parse_csv_line(combined_line, delimiter)
         if not row_values:
+            logger.error(f"❌ Не удалось распарсить как CSV")
             return False, None
+        
+        logger.info(f"✅ CSV распарсен: {len(row_values)} полей")
         
         # Проверяем, что есть достаточно полей
         if len(row_values) < 8:
+            logger.error(f"❌ Недостаточно полей: {len(row_values)} < 8")
             return False, None
+        
+        logger.info(f"✅ Количество полей OK: {len(row_values)}")
         
         # Получаем фактический ID
         actual_id = None
         if row_values[0] and row_values[0].strip():
             try:
                 actual_id = int(row_values[0].strip())
+                logger.info(f"✅ ID извлечен: {actual_id}")
             except ValueError:
+                logger.error(f"❌ Не удалось преобразовать ID в число: '{row_values[0]}'")
                 return False, None
         
         # Парсим запись
+        logger.info(f"🔍 Парсинг полей записи...")
         parsed = _parse_line_to_record(row_values, logical_row_index, errors)
         if not parsed:
+            logger.error(f"❌ Не удалось распарсить поля записи")
             return False, None
+        
+        logger.info(f"✅ Поля записи распарсены: {list(parsed.keys())}")
         
         # Пытаемся сохранить запись
         try:
+            logger.info(f"💾 Сохранение записи во временную таблицу...")
             created_count, failed_count, errors = _process_record_row(parsed, import_history, (0, 0, errors))
-            return failed_count == 0, actual_id
-        except Exception:
-            return False, None
+            if failed_count == 0:
+                logger.info(f"✅ Запись успешно сохранена во временную таблицу")
+                return True, actual_id
+            else:
+                logger.error(f"❌ Ошибка при сохранении записи: {errors}")
+                return False, actual_id
+        except Exception as e:
+            logger.error(f"❌ Исключение при сохранении записи: {str(e)}")
+            return False, actual_id
             
-    except Exception:
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в _try_process_combined_line: {str(e)}")
         return False, None
 
 def _parse_line_to_record(row_values, row_count, errors):
@@ -587,27 +887,27 @@ def _parse_line_to_record(row_values, row_count, errors):
             errors.append(f"Строка {row_count}: неверное количество полей ({len(row_values)})")
             return None
         original_id = None
-        original_id_str = row_values[0].strip() if row_values[0] else None
+        original_id_str = _clean_line_for_combining(row_values[0]) if row_values[0] else None
         if original_id_str:
             try:
                 original_id = int(original_id_str)
             except ValueError:
                 errors.append(f"Некорректный ID в строке {row_count}: {original_id_str}")
-        number = row_values[1].strip() if len(row_values) > 1 else ""
-        last_name = row_values[2].strip() if len(row_values) > 2 else ""
-        first_name = row_values[3].strip() if len(row_values) > 3 else ""
-        middle_name = row_values[4].strip() if len(row_values) > 4 else None
-        address = row_values[5].strip() if len(row_values) > 5 else None
-        memo1 = row_values[6].strip() if len(row_values) > 6 else None
-        memo2 = row_values[7].strip() if len(row_values) > 7 else None
-        birth_place = row_values[8].strip() if len(row_values) > 8 else None
-        imsi = row_values[10].strip() if len(row_values) > 10 else None
+        number = _clean_line_for_combining(row_values[1]) if len(row_values) > 1 else ""
+        last_name = _clean_line_for_combining(row_values[2]) if len(row_values) > 2 else ""
+        first_name = _clean_line_for_combining(row_values[3]) if len(row_values) > 3 else ""
+        middle_name = _clean_line_for_combining(row_values[4]) if len(row_values) > 4 else None
+        address = _clean_line_for_combining(row_values[5]) if len(row_values) > 5 else None
+        memo1 = _clean_line_for_combining(row_values[6]) if len(row_values) > 6 else None
+        memo2 = _clean_line_for_combining(row_values[7]) if len(row_values) > 7 else None
+        birth_place = _clean_line_for_combining(row_values[8]) if len(row_values) > 8 else None
+        imsi = _clean_line_for_combining(row_values[10]) if len(row_values) > 10 else None
 
         # Дата рождения
         birth_date = None
-        if len(row_values) > 9 and row_values[9] and row_values[9].strip():
+        if len(row_values) > 9 and row_values[9] and _clean_line_for_combining(row_values[9]):
             from datetime import datetime, date
-            birth_date_str = row_values[9].strip()
+            birth_date_str = _clean_line_for_combining(row_values[9])
             if birth_date_str.upper() == 'NULL':
                 birth_date = None
             else:
@@ -672,7 +972,6 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
     failed_count = 0
     logical_row_index = processed_rows_start
     
-    expected_id = None
     last_valid_line = None  # Последняя строка с правильным полем
     
     with file_path.open('r', encoding=encoding, errors='ignore') as fh:
@@ -681,6 +980,10 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
         
         # Читаем все строки сразу для возможности предпросмотра
         all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
+        
+        logger.info(f"📁 Файл прочитан: {len(all_lines)} строк")
+        logger.info(f"📊 Настройки: delimiter='{delimiter}', encoding='{encoding}', has_header={has_header}")
+        logger.info(f"🚀 Начинаем обработку с позиции {processed_rows_start}")
         
         physical_line_idx = 0
         i = 0
@@ -700,6 +1003,8 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 import_history.stop_reason = 'Отмена пользователем'
                 import_history.phase = 'completed'
                 import_history.save()
+                # Очищаем временную таблицу
+                _cleanup_temp_table(import_history.temp_table_name)
                 return created_count, failed_count, logical_row_index
                 
             if import_history.pause_requested:
@@ -716,6 +1021,8 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                         import_history.stop_reason = 'Отмена пользователем'
                         import_history.phase = 'completed'
                         import_history.save()
+                        # Очищаем временную таблицу
+                        _cleanup_temp_table(import_history.temp_table_name)
                         return created_count, failed_count, logical_row_index
                     if not import_history.pause_requested:
                         logger.info(f"Импорт {import_history.id} возобновлен после паузы")
@@ -726,8 +1033,8 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                     import time
                     time.sleep(0.5)
             
-            current_line = all_lines[i].strip()
-            physical_line_idx += 1
+            current_line = _clean_line_for_combining(all_lines[i])
+            physical_line_idx = i + 1  # Номер строки в файле (1-based)
             
             # Пропускаем заголовок
             if physical_line_idx == 1 and has_header:
@@ -739,66 +1046,91 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 i += 1
                 continue
             
-            # Проверяем, является ли текущая строка валидной (начинается с правильного ID)
-            current_id = _extract_id_from_line(current_line, delimiter)
-            # Для первой записи не проверяем expected_id
-            is_current_valid = _is_valid_id_field_value(current_id, expected_id if expected_id is not None else None)
+            # Проверяем, является ли текущая строка валидной (ID + телефонный номер)
+            is_current_valid = _is_valid_line(current_line, delimiter)
+            
+            # ОТЛАДКА: Показываем текущую обрабатываемую строку
+            logger.info(f"=== ОБРАБОТКА СТРОКИ {physical_line_idx} ===")
+            logger.info(f"Текущая строка: {current_line[:200]}...")
+            logger.info(f"Валидна: {is_current_valid}")
             
             if is_current_valid:
                 # Текущая строка валидная - сохраняем как последнюю валидную
                 last_valid_line = current_line
+                logger.info(f"✅ Начинаем обработку валидной строки")
                 
                 # Смотрим следующие строки для склеивания
                 combined_line = current_line
                 lines_to_combine = [current_line]
                 j = i + 1
+                next_valid_line = None
+                next_valid_line_index = None
                 
                 # Ищем следующую валидную строку или достигаем конца файла
                 while j < len(all_lines):
-                    next_line = all_lines[j].strip()
+                    next_line = _clean_line_for_combining(all_lines[j])
                     
                     # Пропускаем пустые строки
                     if not next_line:
                         j += 1
                         continue
                     
-                    next_id = _extract_id_from_line(next_line, delimiter)
-                    is_next_valid = _is_valid_id_field_value(next_id, current_id)
+                    is_next_valid = _is_valid_line(next_line, delimiter)
+                    
+                    logger.info(f"  Следующая строка {j}: Валидна={is_next_valid}")
+                    logger.info(f"  Содержимое: {next_line[:150]}...")
                     
                     if is_next_valid:
                         # Следующая строка валидная - прекращаем склеивание
+                        next_valid_line = next_line
+                        next_valid_line_index = j
+                        logger.info(f"  🛑 Следующая строка валидна - прекращаем склеивание")
                         break
                     else:
                         # Следующая строка не валидная - добавляем к текущей
-                        combined_line += " " + next_line
+                        # Очищаем объединенную строку от лишних пробелов
+                        combined_line = _clean_line_for_combining(combined_line + " " + next_line)
                         lines_to_combine.append(next_line)
+                        logger.info(f"  🔗 Склеиваем строку {j}: {next_line[:100]}...")
+                        logger.info(f"  📝 Объединенная строка: {combined_line[:200]}...")
                         j += 1
+                
+                logger.info(f"📊 Итоговое объединение: {len(lines_to_combine)} строк")
+                logger.info(f"📝 Финальная строка: {combined_line[:300]}...")
                 
                 # Пытаемся обработать объединенную строку
                 logical_row_index += 1
                 if logical_row_index > processed_rows_start:
+                    logger.info(f"🔄 Пытаемся обработать запись {logical_row_index}...")
+                    
                     success, actual_id = _try_process_combined_line(
                         combined_line, logical_row_index, delimiter, import_history
                     )
                     
                     if success:
                         created_count += 1
-                        expected_id = actual_id
+                        logger.info(f"✅ Запись {logical_row_index} успешно обработана!")
                     else:
                         failed_count += 1
+                        logger.error(f"❌ Запись {logical_row_index} не удалось обработать")
+                        
                         # Записываем ошибку с подробными исходными данными
                         raw_data_lines = []
                         
-                        # Записываем строки, начиная с последней валидной строки
+                        # Записываем строки, начиная с последней валидной строки (если она отличается от текущей)
                         if last_valid_line and last_valid_line != current_line:
                             raw_data_lines.append(f"Последняя валидная строка: {last_valid_line}")
                         
                         # Записываем все строки, которые пытались склеить
                         for idx, line in enumerate(lines_to_combine):
                             if idx == 0:
-                                raw_data_lines.append(f"Текущая строка (начало записи): {line}")
+                                raw_data_lines.append(f"Начальная строка (с валидным ID): {line}")
                             else:
                                 raw_data_lines.append(f"Продолжение строки {idx}: {line}")
+                        
+                        # Добавляем следующую валидную строку, если она есть
+                        if next_valid_line:
+                            raw_data_lines.append(f"Следующая валидная строка: {next_valid_line}")
                         
                         # Добавляем результат склеивания
                         raw_data_lines.append(f"Результат склеивания: {combined_line}")
@@ -812,12 +1144,26 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                         else:
                             raw_data_lines.append("Не удалось распарсить как CSV")
                         
+                        # Формируем финальный текст для raw_data
+                        final_raw_data = "\n".join(raw_data_lines)
+                        raw_data_size = len(final_raw_data)
+                        
+                        # Логируем размер данных для отладки
+                        logger.info(f"📊 Размер raw_data для ошибки: {raw_data_size} символов")
+                        if raw_data_size > 4000:
+                            logger.warning(f"⚠️ Большой размер raw_data: {raw_data_size} символов (близко к лимиту 5000)")
+                        
+                        # Обрезаем до лимита, если необходимо
+                        if raw_data_size > 5000:
+                            final_raw_data = final_raw_data[:5000]
+                            logger.warning(f"⚠️ raw_data обрезан с {raw_data_size} до 5000 символов")
+                        
                         ImportError.objects.create(
                             import_history=import_history,
                             import_session_id=import_history.import_session_id,
                             row_index=logical_row_index,
                             message="Не удалось восстановить разбитую запись",
-                            raw_data="\n".join(raw_data_lines)[:2000]  # Увеличиваем размер до 2000 символов
+                            raw_data=final_raw_data
                         )
                     
                     # Обновляем прогресс
@@ -831,11 +1177,25 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                     if logical_row_index % 10 == 0:
                         import_history.save()
                 
-                # Переходим к следующей непроверенной строке
-                i = j
+                # Переходим к следующей строке
+                if next_valid_line_index is not None:
+                    # У нас есть следующая валидная строка - переходим к ней
+                    i = next_valid_line_index
+                    logger.info(f"🔄 Переходим к валидной строке {i}: {next_valid_line[:100]}...")
+                else:
+                    # Достигли конца файла - переходим к j (конец файла)
+                    i = j
+                    logger.info(f"🔄 Достигли конца файла, переходим к позиции {i}")
+                
+                logger.info("=" * 80)
             else:
                 # Текущая строка не валидная - пропускаем (такого не должно быть при правильной логике)
+                logger.warning(f"⚠️ Строка {physical_line_idx} не валидна - пропускаем")
                 i += 1
+    
+    logger.info(f"🏁 Обработка завершена!")
+    logger.info(f"📊 Итоги: создано={created_count}, ошибок={failed_count}, обработано строк={logical_row_index}")
+    logger.info("=" * 80)
     
     return created_count, failed_count, logical_row_index
 
@@ -874,7 +1234,7 @@ def _process_single_csv_record(line, logical_row_index, delimiter, import_histor
                         import_session_id=import_history.import_session_id,
                         row_index=logical_row_index,
                         message=msg,
-                        raw_data=line[:500]
+                        raw_data=line[:5000]  # Увеличиваем лимит до 5000 символов
                     )
             else:
                 # Ошибка парсинга
@@ -885,7 +1245,7 @@ def _process_single_csv_record(line, logical_row_index, delimiter, import_histor
                         import_session_id=import_history.import_session_id,
                         row_index=logical_row_index,
                         message=errors[-1],
-                        raw_data=line[:500]
+                        raw_data=line[:5000]  # Увеличиваем лимит до 5000 символов
                     )
     except Exception as e:
         failed_count += 1
@@ -894,7 +1254,7 @@ def _process_single_csv_record(line, logical_row_index, delimiter, import_histor
             import_session_id=import_history.import_session_id,
             row_index=logical_row_index,
             message=f"Ошибка обработки строки: {str(e)}",
-            raw_data=line[:500]
+            raw_data=line[:5000]  # Увеличиваем лимит до 5000 символов
         )
     
     return created_count, failed_count, actual_id
@@ -902,14 +1262,17 @@ def _process_single_csv_record(line, logical_row_index, delimiter, import_histor
 def process_csv_import_stream(import_history_id: int) -> None:
     """Потоковый импорт с возможностью резюме по ImportHistory.processed_rows."""
     import_history = ImportHistory.objects.get(id=import_history_id)
-    logger.info(f"Запуск потокового импорта {import_history_id}, текущий статус: {import_history.status}")
+    logger.info(f"🚀 Запуск потокового импорта {import_history_id}")
+    logger.info(f"📊 Текущий статус: {import_history.status}")
+    logger.info(f"📁 Файл: {import_history.uploaded_file}")
     
     # Если импорт был в паузе, продолжаем с того места, где остановились
     if import_history.status == 'paused':
-        logger.info(f"Возобновляем импорт {import_history_id} с позиции {import_history.processed_rows}")
+        logger.info(f"⏸️ Возобновляем импорт {import_history_id} с позиции {import_history.processed_rows}")
         import_history.status = 'processing'
         import_history.phase = 'processing'
     else:
+        logger.info(f"🆕 Новый импорт - инициализация...")
         import_history.status = 'processing'
         import_history.phase = 'initializing'
     
@@ -939,24 +1302,21 @@ def process_csv_import_stream(import_history_id: int) -> None:
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Не удалось подсчитать количество записей: {e}")
 
-    # Архивируем один раз
-    if not getattr(import_history, 'archived_done', False):
+    # Создаем временную таблицу один раз
+    if not import_history.temp_table_name:
         try:
-            import_history.phase = 'archiving'
+            logger.info("🏗️ Создание временной таблицы для импорта...")
+            import_history.phase = 'creating_temp_table'
             import_history.save()
-            archive_table_name = f"subscribers_subscriber_archive_{int(timezone.now().timestamp())}"
-            with connection.cursor() as cursor:
-                cursor.execute(f"""
-                    CREATE TABLE {archive_table_name} AS 
-                    SELECT * FROM subscribers_subscriber
-                """)
-                cursor.execute("DELETE FROM subscribers_subscriber")
-            import_history.archive_table_name = archive_table_name
-            import_history.archived_done = True
+            temp_table_name = f"subscribers_subscriber_temp_{int(timezone.now().timestamp())}"
+            _create_temp_table(temp_table_name)
+            import_history.temp_table_name = temp_table_name
             import_history.save()
+            logger.info(f"✅ Временная таблица {temp_table_name} готова к использованию")
         except Exception as e:  # noqa: BLE001
+            logger.error(f"❌ Ошибка при создании временной таблицы: {str(e)}")
             import_history.status = 'failed'
-            import_history.error_message = f"Ошибка при архивации данных: {str(e)}"
+            import_history.error_message = f"Ошибка при создании временной таблицы: {str(e)}"
             import_history.save()
             return
 
@@ -977,16 +1337,45 @@ def process_csv_import_stream(import_history_id: int) -> None:
         import_history.processed_rows = logical_row_index
         import_history.records_created = created_count
         import_history.records_failed = failed_count
-        import_history.status = 'completed'
-        import_history.phase = 'completed'
-        import_history.progress_percent = 100
-        import_history.save()
+        
+        # Финализация импорта - перенос данных из временной таблицы в основную
+        try:
+            logger.info("🏁 Начинаем финализацию импорта...")
+            import_history.phase = 'finalizing'
+            import_history.save()
+            _finalize_import(import_history)
+            
+            import_history.status = 'completed'
+            import_history.phase = 'completed'
+            import_history.progress_percent = 100
+            if errors:
+                msg = "\n".join(errors[:20])
+                if len(errors) > 20:
+                    msg += f"\n... ещё {len(errors) - 20} ошибок"
+                import_history.error_message = msg
+            import_history.save()
+            logger.info("🎉 Импорт успешно завершен!")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при финализации импорта: {str(e)}")
+            import_history.status = 'failed'
+            import_history.error_message = f"Ошибка при финализации импорта: {str(e)}"
+            import_history.save()
+            # Очищаем временную таблицу
+            _cleanup_temp_table(import_history.temp_table_name)
     except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в процессе импорта: {str(e)}")
         import_history.status = 'failed'
         import_history.error_message = f"Непредвиденная ошибка: {str(e)}"
         import_history.save()
+        # Очищаем временную таблицу при ошибке
+        _cleanup_temp_table(import_history.temp_table_name)
     finally:
+        # Убеждаемся, что временная таблица очищена при любом завершении
+        if import_history.temp_table_name and import_history.status in ['failed', 'cancelled']:
+            logger.info(f"🧹 Очистка временной таблицы {import_history.temp_table_name}")
+            _cleanup_temp_table(import_history.temp_table_name)
         _RUNNING_IMPORTS.pop(import_history_id, None)
+        logger.info(f"🏁 Импорт {import_history_id} завершен. Статус: {import_history.status}")
 
 def start_import_async(import_history_id: int) -> bool:
     """Стартует фоновый импорт, если он ещё не идёт. Возвращает True, если стартовали сейчас."""

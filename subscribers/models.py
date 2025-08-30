@@ -71,6 +71,7 @@ class ImportHistory(models.Model):
     records_created = models.PositiveIntegerField('Создано записей', default=0)
     records_failed = models.PositiveIntegerField('Ошибочных записей', default=0)
     archive_table_name = models.CharField('Имя архивной таблицы', max_length=255, blank=True, null=True)
+    temp_table_name = models.CharField('Имя временной таблицы', max_length=255, blank=True, null=True)
     error_message = models.TextField('Сообщение об ошибке', blank=True, null=True)
     info_message = models.TextField('Информационное сообщение', blank=True, null=True)
     uploaded_file = models.FileField('Файл импорта', upload_to='imports/%Y/%m/%d/', blank=True, null=True)
