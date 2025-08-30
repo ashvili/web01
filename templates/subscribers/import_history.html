@@ -52,10 +52,16 @@
                                             <span class="badge bg-success">Завершено</span>
                                         {% elif import_item.status == 'processing' %}
                                             <span class="badge bg-warning text-dark">В обработке</span>
-                                        {% elif import_item.status == 'pending' %}
-                                            <span class="badge bg-info">Ожидание</span>
-                                        {% else %}
+                                        {% elif import_item.status == 'paused' %}
+                                            <span class="badge bg-info">На паузе</span>
+                                        {% elif import_item.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">Отменено</span>
+                                        {% elif import_item.status == 'failed' %}
                                             <span class="badge bg-danger">Ошибка</span>
+                                        {% elif import_item.status == 'pending' %}
+                                            <span class="badge bg-primary">Ожидает</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ import_item.status }}</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ import_item.records_count }}</td>

@@ -17,8 +17,10 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
-from .models import Subscriber, ImportHistory
+from .models import Subscriber, ImportHistory, ImportError
 from .forms import CSVImportForm, ImportCSVForm, SearchForm
 from .tasks import process_csv_import_task_impl, start_import_async, is_import_running
 
@@ -101,6 +103,7 @@ def import_csv(request):
                 # Не читаем файл целиком — сохраняем как есть, валидацию/подсчёт сделает фон
                 
                 # Создаем запись для отслеживания импорта и сохраняем файл
+                import_session_id = f"imp_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{request.user.id}_{csv_file.name[:15].replace(' ', '_')}"
                 import_history = ImportHistory.objects.create(
                     file_name=csv_file.name,
                     file_size=csv_file.size,
@@ -109,7 +112,8 @@ def import_csv(request):
                     has_header=has_header,
                     created_by=request.user,
                     status='pending',
-                    phase='pending'
+                    phase='pending',
+                    import_session_id=import_session_id
                 )
                 # присвоим файл
                 import_history.uploaded_file = csv_file
@@ -171,6 +175,10 @@ def import_detail(request, import_id):
 def import_status(request, import_id):
     """JSON-статус прогресса импорта."""
     import_history = get_object_or_404(ImportHistory, id=import_id)
+    
+    # Добавляем отладочную информацию
+    logger.debug(f"Статус импорта {import_id}: {import_history.status}, phase: {getattr(import_history, 'phase', 'N/A')}")
+    
     data = {
         'status': import_history.status,
         'phase': getattr(import_history, 'phase', ''),
@@ -179,21 +187,125 @@ def import_status(request, import_id):
         'progress_percent': getattr(import_history, 'progress_percent', 0),
         'running': is_import_running(import_history.id),
         'error_message': import_history.error_message or '',
+        'pause_requested': getattr(import_history, 'pause_requested', False),
+        'cancel_requested': getattr(import_history, 'cancel_requested', False),
+        'last_heartbeat_at': import_history.last_heartbeat_at.isoformat() if import_history.last_heartbeat_at else None,
+        'stop_reason': getattr(import_history, 'stop_reason', None),
+        'errors_count': getattr(import_history, 'errors', None).count() if hasattr(import_history, 'errors') else 0,
+        'records_created': import_history.records_created,
+        'records_failed': import_history.records_failed,
     }
+    
+    logger.debug(f"Данные статуса для импорта {import_id}: {data}")
     return JsonResponse(data)
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')
-def import_resume(request, import_id):
-    """Возобновить импорт с последнего чекпойнта."""
+@require_POST
+@csrf_exempt
+def import_pause(request, import_id):
     import_history = get_object_or_404(ImportHistory, id=import_id)
-    if import_history.status in ('completed', 'processing'):
-        return JsonResponse({'ok': True, 'started': False, 'reason': 'already in state'}, status=200)
-    import_history.status = 'pending'
-    import_history.phase = 'pending'
-    import_history.save()
-    started = start_import_async(import_history.id)
-    return JsonResponse({'ok': True, 'started': started})
+    logger.info(f"Пауза запрошена для импорта {import_id} пользователем {request.user.username}")
+    import_history.pause_requested = True
+    import_history.save(update_fields=['pause_requested'])
+    return JsonResponse({'ok': True})
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+@require_POST
+@csrf_exempt
+def import_resume(request, import_id):
+    import_history = get_object_or_404(ImportHistory, id=import_id)
+    logger.info(f"Возобновление запрошено для импорта {import_id} пользователем {request.user.username}")
+    
+    # Сбрасываем флаги паузы и отмены
+    import_history.pause_requested = False
+    import_history.cancel_requested = False
+    
+    # Если был в паузе, переведём в pending и запустим
+    if import_history.status == 'paused' and not is_import_running(import_history.id):
+        import_history.status = 'pending'
+        import_history.phase = 'pending'
+        import_history.stop_reason = None
+        import_history.save(update_fields=['pause_requested', 'cancel_requested', 'status', 'phase', 'stop_reason'])
+        started = start_import_async(import_history.id)
+        logger.info(f"Импорт {import_id} перезапущен: {started}")
+        return JsonResponse({'ok': True, 'started': started})
+    
+    # Если был в ошибке, перезапускаем с начала
+    elif import_history.status == 'failed' and not is_import_running(import_history.id):
+        import_history.status = 'pending'
+        import_history.phase = 'pending'
+        import_history.stop_reason = None
+        import_history.error_message = None
+        import_history.processed_rows = 0
+        import_history.records_created = 0
+        import_history.records_failed = 0
+        import_history.progress_percent = 0
+        import_history.save(update_fields=[
+            'pause_requested', 'cancel_requested', 'status', 'phase', 'stop_reason',
+            'error_message', 'processed_rows', 'records_created', 'records_failed', 'progress_percent'
+        ])
+        started = start_import_async(import_history.id)
+        logger.info(f"Импорт {import_id} перезапущен после ошибки: {started}")
+        return JsonResponse({'ok': True, 'started': started})
+    
+    # Если импорт уже запущен, просто сбрасываем флаги
+    import_history.save(update_fields=['pause_requested', 'cancel_requested'])
+    logger.info(f"Флаги сброшены для импорта {import_id}, импорт уже запущен")
+    return JsonResponse({'ok': True, 'started': False})
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+@require_POST
+@csrf_exempt
+def import_cancel(request, import_id):
+    import_history = get_object_or_404(ImportHistory, id=import_id)
+    logger.info(f"Отмена запрошена для импорта {import_id} пользователем {request.user.username}")
+    import_history.cancel_requested = True
+    import_history.save(update_fields=['cancel_requested'])
+    return JsonResponse({'ok': True})
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+def import_errors(request, import_id):
+    """Получение ошибок импорта."""
+    try:
+        import_history = get_object_or_404(ImportHistory, id=import_id)
+        
+        # Получаем только ошибки текущего импорта по import_session_id
+        # Показываем последние ошибки (недавно созданные), а не первые
+        max_errors = min(10, 10)  # Показываем максимум 10 последних ошибок
+        errors = ImportError.objects.filter(
+            import_session_id=import_history.import_session_id
+        ).order_by('-created_at')[:max_errors]  # Сортируем по дате создания (новые сначала)
+        
+        errors_data = []
+        for error in errors:
+            errors_data.append({
+                'row_index': error.row_index,
+                'message': error.message,
+                'raw_data': error.raw_data or '',
+                'created_at': error.created_at.isoformat() if error.created_at else None
+            })
+        
+        # Возвращаем реальное количество ошибок по import_session_id
+        total_errors_count = ImportError.objects.filter(
+            import_session_id=import_history.import_session_id
+        ).count()
+        
+        return JsonResponse({
+            'success': True,
+            'errors': errors_data,
+            'total_errors': total_errors_count
+        })
+    except ImportHistory.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Импорт не найден'}, status=404)
+    except Exception as e:
+        logger.error(f"Ошибка при получении ошибок импорта {import_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')

@@ -17,6 +17,9 @@ urlpatterns = [
     path('import/history/<int:import_id>/', views.import_detail, name='import_detail'),
     path('import/status/<int:import_id>/', views.import_status, name='import_status'),
     path('import/resume/<int:import_id>/', views.import_resume, name='import_resume'),
+    path('import/pause/<int:import_id>/', views.import_pause, name='import_pause'),
+    path('import/cancel/<int:import_id>/', views.import_cancel, name='import_cancel'),
+    path('import/errors/<int:import_id>/', views.import_errors, name='import_errors'),
     path('import/cleanup-archives/', views.cleanup_archives, name='cleanup_archives'),
     
     # Поиск абонентов

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subscriber, ImportHistory
+from .models import Subscriber, ImportHistory, ImportError
 
 # Register your models here.
 
@@ -40,6 +40,31 @@ class ImportHistoryAdmin(admin.ModelAdmin):
         }),
         ('Результаты импорта', {
             'fields': ('records_count', 'records_created', 'records_failed', 'archive_table_name', 'error_message')
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        return False  # Запрещаем ручное создание записей
+    
+    def has_delete_permission(self, request, obj=None):
+        # Разрешаем удаление только для суперпользователей
+        return request.user.is_superuser
+
+@admin.register(ImportError)
+class ImportErrorAdmin(admin.ModelAdmin):
+    list_display = ('import_history', 'row_index', 'message', 'created_at')
+    list_filter = ('import_history', 'created_at')
+    search_fields = ('message', 'raw_data')
+    readonly_fields = ('import_history', 'row_index', 'message', 'raw_data', 'created_at')
+    ordering = ('-created_at',)
+    list_per_page = 100
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('import_history', 'row_index', 'created_at')
+        }),
+        ('Детали ошибки', {
+            'fields': ('message', 'raw_data')
         }),
     )
     

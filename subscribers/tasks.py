@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db import transaction, connection
 from django.utils import timezone
 
-from .models import Subscriber, ImportHistory
+from .models import Subscriber, ImportHistory, ImportError
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -444,6 +444,13 @@ def _count_total_records(file_path: Path, delimiter: str, has_header: bool) -> i
 def _process_record_row(parsed, import_history: ImportHistory, created_failed_acc):
     created_count, failed_count, errors = created_failed_acc
     try:
+        # ПРОВЕРКА ФЛАГОВ ПРЯМО ПЕРЕД СОХРАНЕНИЕМ ЗАПИСИ
+        import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
+        if import_history.cancel_requested or import_history.pause_requested:
+            # Если запрошена пауза или отмена, просто возвращаем текущие счетчики
+            # Основной цикл обработает эти флаги
+            return created_count, failed_count, errors
+        
         # Нормализация даты
         if parsed['birth_date'] is not None:
             from datetime import date
@@ -469,8 +476,109 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
         created_count += 1
     except Exception as e:  # noqa: BLE001 - логируем и продолжаем
         failed_count += 1
-        errors.append(f"Ошибка при создании записи: {str(e)}")
+        error_msg = f"Ошибка при создании записи: {str(e)}"
+        errors.append(error_msg)
+        # Сохраняем исходные данные для анализа
+        raw_data = f"ID: {parsed.get('original_id', 'N/A')}, Номер: {parsed.get('number', 'N/A')}, ФИО: {parsed.get('last_name', 'N/A')} {parsed.get('first_name', 'N/A')} {parsed.get('middle_name', 'N/A')}, Адрес: {parsed.get('address', 'N/A')}, Дата: {parsed.get('birth_date', 'N/A')}"
+        ImportError.objects.create(
+            import_history=import_history,
+            import_session_id=import_history.import_session_id,
+            row_index=import_history.processed_rows + 1,
+            message=error_msg,
+            raw_data=raw_data
+        )
     return created_count, failed_count, errors
+
+def _extract_id_from_line(line, delimiter):
+    """Извлекает ID из первого поля строки."""
+    if not line or not line.strip():
+        return None
+    
+    try:
+        first_field = line.split(delimiter)[0].strip()
+        return int(first_field) if first_field else None
+    except (ValueError, IndexError):
+        return None
+
+def _is_valid_id_field_value(id_value, expected_id=None):
+    """Проверяет, является ли ID корректным значением."""
+    if id_value is None or id_value <= 0:
+        return False
+    
+    if expected_id is not None:
+        # ID должен быть больше ожидаемого (разумная последовательность)
+        if id_value <= expected_id:
+            return False
+        # ID не должен сильно отличаться от ожидаемого (разница не более 1000)
+        if id_value - expected_id > 1000:
+            return False
+    
+    return True
+
+def _is_valid_id_field(field_value, expected_id=None):
+    """Проверяет, является ли первое поле корректным ID."""
+    if not field_value or not field_value.strip():
+        return False
+    
+    try:
+        parsed_id = int(field_value.strip())
+        return _is_valid_id_field_value(parsed_id, expected_id)
+    except ValueError:
+        return False
+
+def _try_parse_csv_line(line, delimiter):
+    """Пробует распарсить строку как CSV и вернуть поля."""
+    try:
+        import csv
+        import io
+        csv_io = io.StringIO(line)
+        reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        return next(reader, None)
+    except Exception:
+        return None
+
+# Старые функции удалены - теперь используется новый алгоритм с предпросмотром
+
+def _try_process_combined_line(combined_line, logical_row_index, delimiter, import_history):
+    """
+    Пытается обработать объединенную строку как CSV запись.
+    
+    Returns:
+        (success, actual_id) - success указывает на успех, actual_id - фактический ID записи
+    """
+    errors = []
+    try:
+        # Пытаемся распарсить объединенную строку
+        row_values = _try_parse_csv_line(combined_line, delimiter)
+        if not row_values:
+            return False, None
+        
+        # Проверяем, что есть достаточно полей
+        if len(row_values) < 8:
+            return False, None
+        
+        # Получаем фактический ID
+        actual_id = None
+        if row_values[0] and row_values[0].strip():
+            try:
+                actual_id = int(row_values[0].strip())
+            except ValueError:
+                return False, None
+        
+        # Парсим запись
+        parsed = _parse_line_to_record(row_values, logical_row_index, errors)
+        if not parsed:
+            return False, None
+        
+        # Пытаемся сохранить запись
+        try:
+            created_count, failed_count, errors = _process_record_row(parsed, import_history, (0, 0, errors))
+            return failed_count == 0, actual_id
+        except Exception:
+            return False, None
+            
+    except Exception:
+        return False, None
 
 def _parse_line_to_record(row_values, row_count, errors):
     """Преобразование массива строк в словарь полей."""
@@ -552,11 +660,259 @@ def _parse_line_to_record(row_values, row_count, errors):
         errors.append(f"Ошибка при обработке строки {row_count}: {str(e)}")
         return None
 
+def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_header, import_history, processed_rows_start):
+    """
+    Обрабатывает CSV файл с умным склеиванием разбитых строк.
+    Использует предпросмотр следующей строки для принятия решения о склеивании.
+    
+    Returns:
+        (created_count, failed_count, last_processed_row)
+    """
+    created_count = 0
+    failed_count = 0
+    logical_row_index = processed_rows_start
+    
+    expected_id = None
+    last_valid_line = None  # Последняя строка с правильным полем
+    
+    with file_path.open('r', encoding=encoding, errors='ignore') as fh:
+        import_history.phase = 'processing'
+        import_history.save()
+        
+        # Читаем все строки сразу для возможности предпросмотра
+        all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
+        
+        physical_line_idx = 0
+        i = 0
+        
+        while i < len(all_lines):
+            # Heartbeat
+            import_history.last_heartbeat_at = timezone.now()
+            if logical_row_index % 50 == 0:
+                import_history.save(update_fields=['last_heartbeat_at'])
+
+            # Управление: пауза / отмена
+            import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
+            
+            if import_history.cancel_requested:
+                logger.info(f"Импорт {import_history.id} отменен пользователем")
+                import_history.status = 'cancelled'
+                import_history.stop_reason = 'Отмена пользователем'
+                import_history.phase = 'completed'
+                import_history.save()
+                return created_count, failed_count, logical_row_index
+                
+            if import_history.pause_requested:
+                logger.info(f"Импорт {import_history.id} поставлен на паузу пользователем")
+                import_history.status = 'paused'
+                import_history.stop_reason = 'Пауза пользователем'
+                import_history.save()
+                # Ожидаем снятия паузы
+                while True:
+                    import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
+                    if import_history.cancel_requested:
+                        logger.info(f"Импорт {import_history.id} отменен во время паузы")
+                        import_history.status = 'cancelled'
+                        import_history.stop_reason = 'Отмена пользователем'
+                        import_history.phase = 'completed'
+                        import_history.save()
+                        return created_count, failed_count, logical_row_index
+                    if not import_history.pause_requested:
+                        logger.info(f"Импорт {import_history.id} возобновлен после паузы")
+                        import_history.status = 'processing'
+                        import_history.stop_reason = None
+                        import_history.save()
+                        break
+                    import time
+                    time.sleep(0.5)
+            
+            current_line = all_lines[i].strip()
+            physical_line_idx += 1
+            
+            # Пропускаем заголовок
+            if physical_line_idx == 1 and has_header:
+                i += 1
+                continue
+                
+            # Пропускаем пустые строки
+            if not current_line:
+                i += 1
+                continue
+            
+            # Проверяем, является ли текущая строка валидной (начинается с правильного ID)
+            current_id = _extract_id_from_line(current_line, delimiter)
+            # Для первой записи не проверяем expected_id
+            is_current_valid = _is_valid_id_field_value(current_id, expected_id if expected_id is not None else None)
+            
+            if is_current_valid:
+                # Текущая строка валидная - сохраняем как последнюю валидную
+                last_valid_line = current_line
+                
+                # Смотрим следующие строки для склеивания
+                combined_line = current_line
+                lines_to_combine = [current_line]
+                j = i + 1
+                
+                # Ищем следующую валидную строку или достигаем конца файла
+                while j < len(all_lines):
+                    next_line = all_lines[j].strip()
+                    
+                    # Пропускаем пустые строки
+                    if not next_line:
+                        j += 1
+                        continue
+                    
+                    next_id = _extract_id_from_line(next_line, delimiter)
+                    is_next_valid = _is_valid_id_field_value(next_id, current_id)
+                    
+                    if is_next_valid:
+                        # Следующая строка валидная - прекращаем склеивание
+                        break
+                    else:
+                        # Следующая строка не валидная - добавляем к текущей
+                        combined_line += " " + next_line
+                        lines_to_combine.append(next_line)
+                        j += 1
+                
+                # Пытаемся обработать объединенную строку
+                logical_row_index += 1
+                if logical_row_index > processed_rows_start:
+                    success, actual_id = _try_process_combined_line(
+                        combined_line, logical_row_index, delimiter, import_history
+                    )
+                    
+                    if success:
+                        created_count += 1
+                        expected_id = actual_id
+                    else:
+                        failed_count += 1
+                        # Записываем ошибку с подробными исходными данными
+                        raw_data_lines = []
+                        
+                        # Записываем строки, начиная с последней валидной строки
+                        if last_valid_line and last_valid_line != current_line:
+                            raw_data_lines.append(f"Последняя валидная строка: {last_valid_line}")
+                        
+                        # Записываем все строки, которые пытались склеить
+                        for idx, line in enumerate(lines_to_combine):
+                            if idx == 0:
+                                raw_data_lines.append(f"Текущая строка (начало записи): {line}")
+                            else:
+                                raw_data_lines.append(f"Продолжение строки {idx}: {line}")
+                        
+                        # Добавляем результат склеивания
+                        raw_data_lines.append(f"Результат склеивания: {combined_line}")
+                        
+                        # Добавляем диагностическую информацию
+                        row_values = _try_parse_csv_line(combined_line, delimiter)
+                        if row_values:
+                            raw_data_lines.append(f"Количество полей после парсинга: {len(row_values)}")
+                            if len(row_values) > 0:
+                                raw_data_lines.append(f"Первое поле: '{row_values[0]}'")
+                        else:
+                            raw_data_lines.append("Не удалось распарсить как CSV")
+                        
+                        ImportError.objects.create(
+                            import_history=import_history,
+                            import_session_id=import_history.import_session_id,
+                            row_index=logical_row_index,
+                            message="Не удалось восстановить разбитую запись",
+                            raw_data="\n".join(raw_data_lines)[:2000]  # Увеличиваем размер до 2000 символов
+                        )
+                    
+                    # Обновляем прогресс
+                    import_history.processed_rows = logical_row_index
+                    import_history.records_created = created_count
+                    import_history.records_failed = failed_count
+                    if import_history.records_count:
+                        pct = int((logical_row_index / import_history.records_count) * 100)
+                        import_history.progress_percent = min(pct, 100)
+                    
+                    if logical_row_index % 10 == 0:
+                        import_history.save()
+                
+                # Переходим к следующей непроверенной строке
+                i = j
+            else:
+                # Текущая строка не валидная - пропускаем (такого не должно быть при правильной логике)
+                i += 1
+    
+    return created_count, failed_count, logical_row_index
+
+def _process_single_csv_record(line, logical_row_index, delimiter, import_history, expected_id=None):
+    """
+    Обрабатывает одну CSV запись.
+    
+    Returns:
+        (created_count, failed_count, actual_id)
+    """
+    errors = []
+    created_count = 0
+    failed_count = 0
+    actual_id = expected_id
+    
+    try:
+        row_values = _try_parse_csv_line(line, delimiter)
+        if row_values:
+            # Получаем фактический ID для следующей проверки
+            if row_values[0] and row_values[0].strip():
+                try:
+                    actual_id = int(row_values[0].strip())
+                except ValueError:
+                    pass
+            
+            parsed = _parse_line_to_record(row_values, logical_row_index, errors)
+            if parsed:
+                try:
+                    created_count, failed_count, errors = _process_record_row(parsed, import_history, (created_count, failed_count, errors))
+                except Exception as e:
+                    failed_count += 1
+                    msg = f"Не удалось сохранить запись: {str(e)}"
+                    errors.append(msg)
+                    ImportError.objects.create(
+                        import_history=import_history,
+                        import_session_id=import_history.import_session_id,
+                        row_index=logical_row_index,
+                        message=msg,
+                        raw_data=line[:500]
+                    )
+            else:
+                # Ошибка парсинга
+                if errors:
+                    failed_count += 1
+                    ImportError.objects.create(
+                        import_history=import_history,
+                        import_session_id=import_history.import_session_id,
+                        row_index=logical_row_index,
+                        message=errors[-1],
+                        raw_data=line[:500]
+                    )
+    except Exception as e:
+        failed_count += 1
+        ImportError.objects.create(
+            import_history=import_history,
+            import_session_id=import_history.import_session_id,
+            row_index=logical_row_index,
+            message=f"Ошибка обработки строки: {str(e)}",
+            raw_data=line[:500]
+        )
+    
+    return created_count, failed_count, actual_id
+
 def process_csv_import_stream(import_history_id: int) -> None:
     """Потоковый импорт с возможностью резюме по ImportHistory.processed_rows."""
     import_history = ImportHistory.objects.get(id=import_history_id)
-    import_history.status = 'processing'
-    import_history.phase = 'initializing'
+    logger.info(f"Запуск потокового импорта {import_history_id}, текущий статус: {import_history.status}")
+    
+    # Если импорт был в паузе, продолжаем с того места, где остановились
+    if import_history.status == 'paused':
+        logger.info(f"Возобновляем импорт {import_history_id} с позиции {import_history.processed_rows}")
+        import_history.status = 'processing'
+        import_history.phase = 'processing'
+    else:
+        import_history.status = 'processing'
+        import_history.phase = 'initializing'
+    
     import_history.save()
 
     # Путь к загруженному файлу
@@ -611,87 +967,21 @@ def process_csv_import_stream(import_history_id: int) -> None:
     failed_count = import_history.records_failed or 0
     errors: list[str] = []
 
-    # Читаем файл построчно, собирая логические строки записей
-    logical_row_index = 0
-    current_line: Optional[str] = None
-
+    # Используем новую логику с умным склеиванием строк
     try:
-        with file_path.open('r', encoding=encoding, errors='ignore') as fh:
-            import_history.phase = 'processing'
-            import_history.save()
-            physical_line_idx = 0
-            for raw_line in fh:
-                physical_line_idx += 1
-                if physical_line_idx == 1 and has_header:
-                    # заголовок
-                    continue
-                if not raw_line.strip():
-                    continue
-                first_col = raw_line.split(delimiter)[0]
-                is_new_record = bool(id_pattern.match(first_col))
-                if is_new_record:
-                    if current_line is not None:
-                        # Завершаем предыдущую логическую запись
-                        logical_row_index += 1
-                        if logical_row_index > processed_rows_start:
-                            # Обработка записи
-                            csv_io = io.StringIO(current_line)
-                            reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                            row_values = next(reader, None)
-                            if row_values is not None:
-                                parsed = _parse_line_to_record(row_values, logical_row_index, errors)
-                                if parsed:
-                                    created_count, failed_count, errors = _process_record_row(parsed, import_history, (created_count, failed_count, errors))
-                            import_history.processed_rows = logical_row_index
-                            import_history.records_created = created_count
-                            import_history.records_failed = failed_count
-                            if import_history.records_count:
-                                pct = int((logical_row_index / import_history.records_count) * 100)
-                                if pct > 100:
-                                    pct = 100
-                                import_history.progress_percent = pct
-                            if logical_row_index % 50 == 0:
-                                import_history.save()
-                        # Начинаем новую запись
-                    current_line = raw_line.strip()
-                else:
-                    if current_line is not None:
-                        current_line = current_line + " " + raw_line.strip()
-                    else:
-                        # Строка без текущей записи — пропускаем
-                        continue
-
-            # Финализируем последнюю запись
-            if current_line is not None:
-                logical_row_index += 1
-                if logical_row_index > processed_rows_start:
-                    csv_io = io.StringIO(current_line)
-                    reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                    row_values = next(reader, None)
-                    if row_values is not None:
-                        parsed = _parse_line_to_record(row_values, logical_row_index, errors)
-                        if parsed:
-                            created_count, failed_count, errors = _process_record_row(parsed, import_history, (created_count, failed_count, errors))
-                import_history.processed_rows = logical_row_index
-                import_history.records_created = created_count
-                import_history.records_failed = failed_count
-                if import_history.records_count:
-                    pct = int((logical_row_index / import_history.records_count) * 100)
-                    if pct > 100:
-                        pct = 100
-                    import_history.progress_percent = pct
-
-        # Завершение
+        created_count, failed_count, logical_row_index = _process_csv_lines_with_smart_joining(
+            file_path, delimiter, encoding, has_header, import_history, processed_rows_start
+        )
+        
+        # Обновляем финальную статистику
+        import_history.processed_rows = logical_row_index
+        import_history.records_created = created_count
+        import_history.records_failed = failed_count
         import_history.status = 'completed'
         import_history.phase = 'completed'
         import_history.progress_percent = 100
-        if errors:
-            msg = "\n".join(errors[:20])
-            if len(errors) > 20:
-                msg += f"\n... ещё {len(errors) - 20} ошибок"
-            import_history.error_message = msg
         import_history.save()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         import_history.status = 'failed'
         import_history.error_message = f"Непредвиденная ошибка: {str(e)}"
         import_history.save()
@@ -701,7 +991,10 @@ def process_csv_import_stream(import_history_id: int) -> None:
 def start_import_async(import_history_id: int) -> bool:
     """Стартует фоновый импорт, если он ещё не идёт. Возвращает True, если стартовали сейчас."""
     if _RUNNING_IMPORTS.get(import_history_id):
+        logger.info(f"Импорт {import_history_id} уже запущен, не запускаем повторно")
         return False
+    
+    logger.info(f"Запускаем фоновый импорт {import_history_id}")
     t = threading.Thread(target=process_csv_import_stream, args=(import_history_id,), daemon=True)
     _RUNNING_IMPORTS[import_history_id] = t
     t.start()
@@ -709,7 +1002,8 @@ def start_import_async(import_history_id: int) -> bool:
 
 def is_import_running(import_history_id: int) -> bool:
     t = _RUNNING_IMPORTS.get(import_history_id)
-    return t.is_alive() if t else False
+    is_running = t.is_alive() if t else False
+    return is_running
 
 # Имитация задачи Celery для очистки устаревших данных
 def cleanup_old_import_data(days=30):
@@ -717,73 +1011,37 @@ def cleanup_old_import_data(days=30):
     Функция для очистки устаревших данных импорта
     
     Args:
-        days: Количество дней, после которых данные считаются устаревшими
+        days (int): Количество дней для хранения данных
+        
+    Returns:
+        str: Результат операции
     """
-    # Имитация асинхронной задачи
-    def delay(*args, **kwargs):
-        # Выполняем код сразу же, без асинхронности
-        return cleanup_old_import_data_impl(*args, **kwargs)
-    
-    # Добавляем метод delay к оригинальной функции
-    cleanup_old_import_data.delay = delay
-    
-    # Выполняем реальную работу
-    return cleanup_old_import_data_impl(days)
+    try:
+        return cleanup_old_import_data_impl(days)
+    except Exception as e:
+        logger.error(f"Ошибка при очистке устаревших данных: {str(e)}")
+        return f"Ошибка при очистке устаревших данных: {str(e)}"
 
 def cleanup_old_import_data_impl(days=30):
     """Реализация задачи очистки устаревших данных"""
-    threshold_date = timezone.now() - datetime.timedelta(days=days)
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    cutoff_date = timezone.now() - timedelta(days=days)
     
     try:
-        # Получаем все устаревшие импорты
-        old_imports = ImportHistory.objects.filter(created_at__lt=threshold_date)
+        # Удаляем старые записи импорта
+        old_imports = ImportHistory.objects.filter(created_at__lt=cutoff_date)
+        count = old_imports.count()
+        old_imports.delete()
+            
+        # Удаляем старые ошибки импорта
+        old_errors = ImportError.objects.filter(created_at__lt=cutoff_date)
+        error_count = old_errors.count()
+        old_errors.delete()
         
-        import_count = old_imports.count()
-        
-        if import_count > 0:
-            # Логируем информацию о начале очистки
-            logger.info(f"Начало очистки старых данных импорта: {import_count} записей")
-            
-            # Находим архивные таблицы абонентов, которые старше threshold_date
-            with connection.cursor() as cursor:
-                # Получаем список всех таблиц в базе данных
-                cursor.execute("""
-                    SELECT name FROM sqlite_master 
-                    WHERE type='table' AND name LIKE 'subscribers_subscriber_archive_%'
-                """)
-                archive_tables = cursor.fetchall()
-                
-                # Удаляем старые архивные таблицы
-                for table in archive_tables:
-                    table_name = table[0]
-                    # Извлекаем дату из имени таблицы
-                    try:
-                        date_part = table_name.split('_')[-2:]
-                        table_date_str = f"{date_part[0]}_{date_part[1]}"
-                        table_date = datetime.datetime.strptime(table_date_str, "%Y%m%d_%H%M%S")
-                        
-                        # Если таблица старше threshold_date, удаляем её
-                        if table_date.replace(tzinfo=timezone.utc) < threshold_date:
-                            logger.info(f"Удаляем архивную таблицу: {table_name}")
-                            cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
-                    except (IndexError, ValueError) as e:
-                        logger.warning(f"Невозможно определить дату для таблицы {table_name}: {str(e)}")
-            
-            # Получаем абонентов, связанных с устаревшими импортами
-            old_subscribers = Subscriber.objects.filter(import_history__in=old_imports)
-            subscriber_count = old_subscribers.count()
-            
-            # Удаляем абонентов
-            old_subscribers.delete()
-            
-            # Удаляем импорты
-            old_imports.delete()
-            
-            logger.info(f"Очистка завершена: удалено {import_count} записей импорта и {subscriber_count} абонентов")
-            return f"Очистка завершена: удалено {import_count} записей импорта и {subscriber_count} абонентов, а также старые архивные таблицы"
-        else:
-            logger.info("Нет устаревших данных для очистки")
-            return "Нет устаревших данных для очистки"
+        logger.info(f"Удалено {count} старых записей импорта и {error_count} ошибок")
+        return f"Успешно очищено: {count} записей импорта, {error_count} ошибок"
     
     except Exception as e:
         logger.error(f"Ошибка при очистке устаревших данных: {str(e)}")
@@ -791,21 +1049,19 @@ def cleanup_old_import_data_impl(days=30):
 
 def cleanup_old_archive_tables(keep_count=3):
     """
-    Функция для очистки старых архивных таблиц.
-    Оставляет только указанное количество последних архивных таблиц.
+    Очистка устаревших архивных таблиц, оставляя только последние keep_count таблиц.
     
     Args:
-        keep_count (int): Количество последних таблиц, которые нужно сохранить
+        keep_count (int): Количество последних таблиц для сохранения
         
     Returns:
-        dict: Результат выполнения функции
+        dict: Результат операции с подробностями
     """
     from django.db import connection
     
     try:
-        print(f"Запускаем очистку старых архивных таблиц, оставляем {keep_count} последних...")
         with connection.cursor() as cursor:
-            # Получаем список всех таблиц в базе данных
+            # Получаем список всех архивных таблиц
             cursor.execute("""
                 SELECT table_name 
                 FROM information_schema.tables 
@@ -813,26 +1069,30 @@ def cleanup_old_archive_tables(keep_count=3):
                 ORDER BY table_name DESC
             """)
             archive_tables = [row[0] for row in cursor.fetchall()]
-            print(f"Найдено архивных таблиц: {len(archive_tables)}")
+            
+            if len(archive_tables) <= keep_count:
+                return {
+                    "success": True,
+                    "total_kept": len(archive_tables),
+                    "total_deleted": 0,
+                    "message": f"Все {len(archive_tables)} архивных таблиц сохранены"
+                }
             
             # Определяем таблицы для удаления
-            tables_to_delete = archive_tables[keep_count:] if len(archive_tables) > keep_count else []
+            tables_to_keep = archive_tables[:keep_count]
+            tables_to_delete = archive_tables[keep_count:]
             
             # Удаляем устаревшие таблицы
-            deleted_tables = []
             for table in tables_to_delete:
-                print(f"Удаление устаревшей архивной таблицы: {table}")
                 cursor.execute(f"DROP TABLE IF EXISTS {table}")
-                deleted_tables.append(table)
             
-            print(f"Удалено архивных таблиц: {len(deleted_tables)}")
             return {
                 "success": True,
-                "kept_tables": archive_tables[:keep_count],
-                "deleted_tables": deleted_tables,
-                "total_kept": min(keep_count, len(archive_tables)),
-                "total_deleted": len(deleted_tables)
+                "total_kept": len(tables_to_keep),
+                "total_deleted": len(tables_to_delete),
+                "message": f"Сохранено: {len(tables_to_keep)}, удалено: {len(tables_to_delete)}"
             }
+            
     except Exception as e:
         print(f"Ошибка при очистке старых архивных таблиц: {str(e)}")
         return {
@@ -842,15 +1102,13 @@ def cleanup_old_archive_tables(keep_count=3):
 
 def cleanup_old_archive_tables_task(keep_count=3):
     """
-    Задача очистки старых архивных таблиц.
-    Оставляет только указанное количество последних архивных таблиц.
+    Имитация Celery задачи для очистки архивных таблиц.
     """
-    # Имитация асинхронной задачи
-    def delay(*args, **kwargs):
-        # Выполняем код сразу же, без асинхронности
-        return cleanup_old_archive_tables(*args, **kwargs)
+    # Определяем delay как имитацию Celery
+    def delay(keep_count=3):
+        return cleanup_old_archive_tables(keep_count)
     
-    # Добавляем метод delay к оригинальной функции
+    # Добавляем метод delay к функции
     cleanup_old_archive_tables_task.delay = delay
     
     # Выполняем реальную работу

@@ -55,8 +55,10 @@ class ImportHistory(models.Model):
     STATUS_CHOICES = (
         ('pending', 'В ожидании'),
         ('processing', 'В обработке'),
+        ('paused', 'Пауза'),
         ('completed', 'Завершено'),
         ('failed', 'Ошибка'),
+        ('cancelled', 'Отменено'),
     )
     
     file_name = models.CharField('Имя файла', max_length=255)
@@ -76,8 +78,13 @@ class ImportHistory(models.Model):
     phase = models.CharField('Этап', max_length=20, default='pending')
     archived_done = models.BooleanField('Архивирование завершено', default=False)
     progress_percent = models.PositiveIntegerField('Прогресс, %', default=0)
+    pause_requested = models.BooleanField('Пауза запрошена', default=False)
+    cancel_requested = models.BooleanField('Отмена запрошена', default=False)
+    last_heartbeat_at = models.DateTimeField('Последний heartbeat', null=True, blank=True)
+    stop_reason = models.CharField('Причина остановки', max_length=255, null=True, blank=True)
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='imports')
+    import_session_id = models.CharField('Уникальный ID сессии импорта', max_length=50, unique=True, default='')
     
     class Meta:
         verbose_name = 'История импорта'
@@ -86,3 +93,25 @@ class ImportHistory(models.Model):
     
     def __str__(self):
         return f'Импорт {self.file_name} ({self.created_at.strftime("%d.%m.%Y %H:%M")})'
+
+
+class ImportError(models.Model):
+    """Детализация ошибок импорта по строкам."""
+    import_history = models.ForeignKey(ImportHistory, on_delete=models.CASCADE, related_name='errors')
+    import_session_id = models.CharField('ID сессии импорта', max_length=50, db_index=True, default='')
+    row_index = models.PositiveIntegerField('Номер записи', default=0)
+    message = models.TextField('Сообщение об ошибке')
+    raw_data = models.TextField('Исходные данные строки', blank=True, null=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Ошибка импорта'
+        verbose_name_plural = 'Ошибки импорта'
+        indexes = [
+            models.Index(fields=['import_history', 'row_index']),
+            models.Index(fields=['import_session_id', 'row_index']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f'Ошибка в записи {self.row_index}: {self.message[:50]}'
