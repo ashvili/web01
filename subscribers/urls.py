@@ -19,6 +19,7 @@ urlpatterns = [
     path('import/resume/<int:import_id>/', views.import_resume, name='import_resume'),
     path('import/pause/<int:import_id>/', views.import_pause, name='import_pause'),
     path('import/cancel/<int:import_id>/', views.import_cancel, name='import_cancel'),
+    path('import/finalize/<int:import_id>/', views.import_finalize, name='import_finalize'),
     path('import/errors/<int:import_id>/', views.import_errors, name='import_errors'),
     path('import/cleanup-archives/', views.cleanup_archives, name='cleanup_archives'),
     

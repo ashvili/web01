@@ -56,6 +56,7 @@ class ImportHistory(models.Model):
         ('pending', 'В ожидании'),
         ('processing', 'В обработке'),
         ('paused', 'Пауза'),
+        ('temp_completed', 'Импорт во временную таблицу завершен'),
         ('completed', 'Завершено'),
         ('failed', 'Ошибка'),
         ('cancelled', 'Отменено'),
@@ -66,7 +67,7 @@ class ImportHistory(models.Model):
     delimiter = models.CharField('Разделитель', max_length=3, default=',')
     encoding = models.CharField('Кодировка', max_length=20, default='utf-8')
     has_header = models.BooleanField('Есть заголовок', default=True)
-    status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField('Статус', max_length=30, choices=STATUS_CHOICES, default='pending')
     records_count = models.PositiveIntegerField('Всего записей', default=0)
     records_created = models.PositiveIntegerField('Создано записей', default=0)
     records_failed = models.PositiveIntegerField('Ошибочных записей', default=0)
@@ -76,7 +77,7 @@ class ImportHistory(models.Model):
     info_message = models.TextField('Информационное сообщение', blank=True, null=True)
     uploaded_file = models.FileField('Файл импорта', upload_to='imports/%Y/%m/%d/', blank=True, null=True)
     processed_rows = models.PositiveIntegerField('Обработано записей', default=0)
-    phase = models.CharField('Этап', max_length=20, default='pending')
+    phase = models.CharField('Этап', max_length=50, default='pending')
     archived_done = models.BooleanField('Архивирование завершено', default=False)
     progress_percent = models.PositiveIntegerField('Прогресс, %', default=0)
     pause_requested = models.BooleanField('Пауза запрошена', default=False)

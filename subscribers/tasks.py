@@ -16,14 +16,15 @@ def _create_temp_table(temp_table_name):
     """Создает временную таблицу с той же структурой, что и основная таблица subscribers_subscriber"""
     logger.info(f"🏗️ Создание временной таблицы: {temp_table_name}")
     with connection.cursor() as cursor:
-        # Создаем временную таблицу без первичного ключа, чтобы избежать проблем с NULL в id
+        # Создаем временную таблицу точно по структуре основной таблицы
         cursor.execute(f"""
             CREATE TABLE {temp_table_name} (
+                id SERIAL PRIMARY KEY,
                 original_id INTEGER,
-                number VARCHAR(50),
-                last_name VARCHAR(255),
-                first_name VARCHAR(255),
-                middle_name VARCHAR(255),
+                number VARCHAR(20),
+                last_name VARCHAR(100),
+                first_name VARCHAR(100),
+                middle_name VARCHAR(100),
                 address TEXT,
                 memo1 VARCHAR(255),
                 memo2 VARCHAR(255),
@@ -45,6 +46,27 @@ def _insert_into_temp_table(temp_table_name, record_data):
     """Вставляет запись во временную таблицу"""
     logger.debug(f"📥 Вставка записи ID={record_data['original_id']} в {temp_table_name}")
     with connection.cursor() as cursor:
+        # Дополнительная защита - обрезаем все поля до максимальной длины
+        safe_data = [
+            record_data['original_id'],
+            (record_data['number'] or '')[:20],  # Номер: максимум 20 символов
+            (record_data['last_name'] or '')[:100],  # Фамилия: максимум 100 символов
+            (record_data['first_name'] or '')[:100],  # Имя: максимум 100 символов
+            (record_data['middle_name'] or '')[:100] if record_data['middle_name'] else None,  # Отчество: максимум 100 символов
+            record_data['address'],  # TEXT поле - без ограничений
+            (record_data['memo1'] or '')[:255] if record_data['memo1'] else None,  # Memo1: максимум 255 символов
+            (record_data['memo2'] or '')[:255] if record_data['memo2'] else None,  # Memo2: максимум 255 символов
+            (record_data['birth_place'] or '')[:255] if record_data['birth_place'] else None,  # Место рождения: максимум 255 символов
+            record_data['birth_date'],
+            (record_data['imsi'] or '')[:50] if record_data['imsi'] else None,  # IMSI: максимум 50 символов
+            None,  # gender
+            None,  # email
+            True,  # is_active
+            timezone.now(),  # created_at
+            timezone.now(),  # updated_at
+            record_data['import_history_id']
+        ]
+        
         cursor.execute(f"""
             INSERT INTO {temp_table_name} (
                 original_id, number, last_name, first_name, middle_name, 
@@ -53,25 +75,7 @@ def _insert_into_temp_table(temp_table_name, record_data):
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-        """, [
-            record_data['original_id'],
-            record_data['number'],
-            record_data['last_name'],
-            record_data['first_name'],
-            record_data['middle_name'],
-            record_data['address'],
-            record_data['memo1'],
-            record_data['memo2'],
-            record_data['birth_place'],
-            record_data['birth_date'],
-            record_data['imsi'],
-            None,  # gender
-            None,  # email
-            True,  # is_active
-            timezone.now(),  # created_at
-            timezone.now(),  # updated_at
-            record_data['import_history_id']
-        ])
+        """, safe_data)
     logger.debug(f"✅ Запись ID={record_data['original_id']} вставлена в {temp_table_name}")
 
 def _finalize_import(import_history):
@@ -636,6 +640,33 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
                 parsed['birth_date'] = parsed['birth_date'].date()
 
         logger.info(f"💾 Подготовка данных для записи: ID={parsed.get('original_id')}, номер={parsed.get('number')}")
+
+        # Валидация длины полей перед вставкой
+        validation_errors = []
+        
+        if parsed.get('number') and len(parsed['number']) > 20:
+            validation_errors.append(f"Номер слишком длинный: {len(parsed['number'])} символов (максимум 20)")
+            parsed['number'] = parsed['number'][:20]  # Обрезаем до максимальной длины
+            
+        if parsed.get('last_name') and len(parsed['last_name']) > 100:
+            validation_errors.append(f"Фамилия слишком длинная: {len(parsed['last_name'])} символов (максимум 100)")
+            parsed['last_name'] = parsed['last_name'][:100]
+            
+        if parsed.get('first_name') and len(parsed['first_name']) > 100:
+            validation_errors.append(f"Имя слишком длинное: {len(parsed['first_name'])} символов (максимум 100)")
+            parsed['first_name'] = parsed['first_name'][:100]
+            
+        if parsed.get('middle_name') and len(parsed['middle_name']) > 100:
+            validation_errors.append(f"Отчество слишком длинное: {len(parsed['middle_name'])} символов (максимум 100)")
+            parsed['middle_name'] = parsed['middle_name'][:100]
+            
+        if parsed.get('imsi') and len(parsed['imsi']) > 50:
+            validation_errors.append(f"IMSI слишком длинный: {len(parsed['imsi'])} символов (максимум 50)")
+            parsed['imsi'] = parsed['imsi'][:50]
+
+        # Логируем предупреждения о валидации
+        if validation_errors:
+            logger.warning(f"⚠️ Предупреждения валидации для записи ID={parsed.get('original_id')}: {validation_errors}")
 
         # Подготавливаем данные для вставки во временную таблицу
         record_data = {
@@ -1338,30 +1369,17 @@ def process_csv_import_stream(import_history_id: int) -> None:
         import_history.records_created = created_count
         import_history.records_failed = failed_count
         
-        # Финализация импорта - перенос данных из временной таблицы в основную
-        try:
-            logger.info("🏁 Начинаем финализацию импорта...")
-            import_history.phase = 'finalizing'
-            import_history.save()
-            _finalize_import(import_history)
-            
-            import_history.status = 'completed'
-            import_history.phase = 'completed'
-            import_history.progress_percent = 100
-            if errors:
-                msg = "\n".join(errors[:20])
-                if len(errors) > 20:
-                    msg += f"\n... ещё {len(errors) - 20} ошибок"
-                import_history.error_message = msg
-            import_history.save()
-            logger.info("🎉 Импорт успешно завершен!")
-        except Exception as e:
-            logger.error(f"❌ Ошибка при финализации импорта: {str(e)}")
-            import_history.status = 'failed'
-            import_history.error_message = f"Ошибка при финализации импорта: {str(e)}"
-            import_history.save()
-            # Очищаем временную таблицу
-            _cleanup_temp_table(import_history.temp_table_name)
+        # Завершение импорта во временную таблицу (без финализации)
+        import_history.status = 'temp_completed'
+        import_history.phase = 'waiting_finalization'  # Сокращаем до 18 символов
+        import_history.progress_percent = 100
+        if errors:
+            msg = "\n".join(errors[:20])
+            if len(errors) > 20:
+                msg += f"\n... ещё {len(errors) - 20} ошибок"
+            import_history.error_message = msg
+        import_history.save()
+        logger.info("🎉 Импорт во временную таблицу успешно завершен! Ожидаем команду на финализацию.")
     except Exception as e:
         logger.error(f"❌ Непредвиденная ошибка в процессе импорта: {str(e)}")
         import_history.status = 'failed'

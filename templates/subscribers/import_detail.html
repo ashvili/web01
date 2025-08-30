@@ -87,21 +87,23 @@
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="card-title">Статус</h6>
-                                                                         {% if import_history.status == 'completed' %}
-                                         <span class="badge bg-success fs-6">Завершено</span>
-                                     {% elif import_history.status == 'processing' %}
-                                         <span class="badge bg-warning text-dark fs-6">В обработке</span>
-                                     {% elif import_history.status == 'paused' %}
-                                         <span class="badge bg-info fs-6">На паузе</span>
-                                     {% elif import_history.status == 'cancelled' %}
-                                         <span class="badge bg-secondary fs-6">Отменено</span>
-                                     {% elif import_history.status == 'failed' %}
-                                         <span class="badge bg-danger fs-6">Ошибка</span>
-                                     {% elif import_history.status == 'pending' %}
-                                         <span class="badge bg-primary fs-6">Ожидает</span>
-                                     {% else %}
-                                         <span class="badge bg-secondary fs-6">{{ import_history.status }}</span>
-                                     {% endif %}
+                                                                                                                                                 {% if import_history.status == 'completed' %}
+                                        <span class="badge bg-success fs-6">Завершено</span>
+                                    {% elif import_history.status == 'temp_completed' %}
+                                        <span class="badge bg-warning text-dark fs-6">Ожидает финализации</span>
+                                    {% elif import_history.status == 'processing' %}
+                                        <span class="badge bg-warning text-dark fs-6">В обработке</span>
+                                    {% elif import_history.status == 'paused' %}
+                                        <span class="badge bg-info fs-6">На паузе</span>
+                                    {% elif import_history.status == 'cancelled' %}
+                                        <span class="badge bg-secondary fs-6">Отменено</span>
+                                    {% elif import_history.status == 'failed' %}
+                                        <span class="badge bg-danger fs-6">Ошибка</span>
+                                    {% elif import_history.status == 'pending' %}
+                                        <span class="badge bg-primary fs-6">Ожидает</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6">{{ import_history.status }}</span>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -138,11 +140,14 @@
                                                  <div class="d-flex justify-content-between small mt-1">
                              <span>Обработано: <span id="processed-count">{{ import_history.processed_rows }}</span> / <span id="total-count">{{ import_history.records_count }}</span></span>
                          </div>
-                                                 <div class="mt-2 d-flex gap-2">
-                             <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">Пауза</button>
-                             <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
-                             <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">Отмена</button>
-                         </div>
+                                                                                                 <div class="mt-2 d-flex gap-2">
+                            <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">Пауза</button>
+                            <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
+                            <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">Отмена</button>
+                            <button id="finalize-button" class="btn btn-sm btn-success" type="button" style="display:none;">
+                                <i class="bi bi-check-circle"></i> Финализировать импорт
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mt-3">
@@ -211,9 +216,10 @@ document.addEventListener('DOMContentLoaded', function() {
          const bar = document.getElementById('import-progress-bar');
      const processedEl = document.getElementById('processed-count');
      const totalEl = document.getElementById('total-count');
-          const resumeBtn = document.getElementById('resume-button');
-     const pauseBtn = document.getElementById('pause-button');
-     const cancelBtn = document.getElementById('cancel-button');
+                   const resumeBtn = document.getElementById('resume-button');
+    const pauseBtn = document.getElementById('pause-button');
+    const cancelBtn = document.getElementById('cancel-button');
+    const finalizeBtn = document.getElementById('finalize-button');
      const showErrorsBtn = document.getElementById('show-errors-btn');
      const errorsContainer = document.getElementById('errors-container');
      const errorsTableBody = document.getElementById('errors-table-body');
@@ -347,6 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const showResume = (data.status === 'failed' || data.status === 'pending' || data.status === 'paused');
         const showPause = (data.status === 'processing');
         const showCancel = (data.status === 'processing' || data.status === 'paused' || data.status === 'pending');
+        const showFinalize = (data.status === 'temp_completed');
         
         // Обновляем статус в заголовке карточки
         const statusBadge = document.querySelector('.card-body .badge');
@@ -355,6 +362,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'completed') {
                 statusBadge.classList.add('bg-success');
                 statusBadge.textContent = 'Завершено';
+            } else if (data.status === 'temp_completed') {
+                statusBadge.classList.add('bg-warning', 'text-dark');
+                statusBadge.textContent = 'Ожидает финализации';
             } else if (data.status === 'processing') {
                 statusBadge.classList.add('bg-warning', 'text-dark');
                 statusBadge.textContent = 'В обработке';
@@ -379,11 +389,13 @@ document.addEventListener('DOMContentLoaded', function() {
         resumeBtn.style.display = showResume ? 'inline-block' : 'none';
         pauseBtn.style.display = showPause ? 'inline-block' : 'none';
         cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+        finalizeBtn.style.display = showFinalize ? 'inline-block' : 'none';
         
         console.log('Кнопки обновлены:', {
             resume: showResume,
             pause: showPause,
             cancel: showCancel,
+            finalize: showFinalize,
             status: data.status
         });
     }
@@ -396,6 +408,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateUI(data);
                 if (data.status === 'processing' || data.status === 'paused' || data.status === 'pending') {
                     setTimeout(poll, 1500);
+                } else if (data.status === 'temp_completed') {
+                    // Для temp_completed показываем кнопку финализации, но не запускаем периодическое обновление
+                    console.log('Импорт во временную таблицу завершен, ожидаем финализации');
                 }
             })
             .catch((error) => {
@@ -446,6 +461,45 @@ document.addEventListener('DOMContentLoaded', function() {
              .catch(error => {
                  console.error('Ошибка при отмене импорта:', error);
              });
+     });
+
+     // Обработчик для кнопки финализации
+     finalizeBtn?.addEventListener('click', function(){
+         if (!confirm('Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить.')) return;
+         console.log('Кнопка "Финализировать" нажата для импорта', importId);
+         
+         // Блокируем кнопку на время выполнения
+         finalizeBtn.disabled = true;
+         finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Финализация...';
+         
+         fetch('{% url "subscribers:import_finalize" 0 %}'.replace('0', importId), {
+             method: 'POST', 
+             headers: { 
+                 'X-Requested-With': 'XMLHttpRequest', 
+                 'X-CSRFToken': getCookie('csrftoken') || '' 
+             }
+         })
+         .then(r => r.json())
+         .then(data => {
+             console.log('Ответ от сервера при финализации:', data);
+             if (data.success) {
+                 alert('Импорт успешно финализирован!');
+                 // Обновляем статус импорта
+                 setTimeout(poll, 1000);
+             } else {
+                 alert('Ошибка при финализации: ' + data.error);
+                 // Возвращаем кнопку в исходное состояние
+                 finalizeBtn.disabled = false;
+                 finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+             }
+         })
+         .catch((error) => {
+             console.error('Ошибка при финализации импорта:', error);
+             alert('Произошла ошибка при финализации импорта');
+             // Возвращаем кнопку в исходное состояние
+             finalizeBtn.disabled = false;
+             finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+         });
      });
      
      // Обработчик для кнопки показа ошибок

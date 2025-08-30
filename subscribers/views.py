@@ -268,6 +268,68 @@ def import_cancel(request, import_id):
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')
+@require_POST
+@csrf_exempt
+def import_finalize(request, import_id):
+    """Финализация импорта - перенос данных из временной таблицы в основную"""
+    import_history = get_object_or_404(ImportHistory, id=import_id)
+    
+    # Проверяем, что импорт находится в состоянии temp_completed
+    if import_history.status != 'temp_completed':
+        return JsonResponse({
+            'success': False, 
+            'error': f'Импорт должен быть в статусе "temp_completed", текущий статус: {import_history.status}'
+        }, status=400)
+    
+    # Проверяем, что есть временная таблица
+    if not import_history.temp_table_name:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Не найдена временная таблица для финализации'
+        }, status=400)
+    
+    try:
+        logger.info(f"🏁 Начинаем финализацию импорта {import_id} пользователем {request.user.username}")
+        
+        # Обновляем статус на финализацию
+        import_history.status = 'processing'
+        import_history.phase = 'finalizing'
+        import_history.save()
+        
+        # Импортируем функцию финализации
+        from .tasks import _finalize_import
+        
+        # Выполняем финализацию
+        _finalize_import(import_history)
+        
+        # Обновляем статус на завершено
+        import_history.status = 'completed'
+        import_history.phase = 'completed'
+        import_history.save()
+        
+        logger.info(f"✅ Финализация импорта {import_id} успешно завершена")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Импорт успешно финализирован. Данные перенесены в основную таблицу.'
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при финализации импорта {import_id}: {str(e)}")
+        
+        # Возвращаем статус обратно в temp_completed при ошибке
+        import_history.status = 'temp_completed'
+        import_history.phase = 'waiting_finalization'
+        import_history.error_message = f"Ошибка при финализации: {str(e)}"
+        import_history.save()
+        
+        return JsonResponse({
+            'success': False, 
+            'error': f'Ошибка при финализации импорта: {str(e)}'
+        }, status=500)
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
 def import_errors(request, import_id):
     """Получение ошибок импорта."""
     try:
