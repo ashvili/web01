@@ -374,14 +374,40 @@ def import_errors(request, import_id):
 @user_passes_test(is_admin, login_url='subscribers:search')
 def cleanup_archives(request):
     """Представление для ручной очистки архивных таблиц (только для администраторов)"""
-    from subscribers.tasks import cleanup_old_archive_tables
+    from subscribers.tasks import cleanup_old_archive_tables, list_archive_tables
+    from django.http import JsonResponse
     
     # По умолчанию оставляем 3 последние архивные таблицы
     keep_count = int(request.GET.get('keep', 3))
     
+    # Сначала получаем информацию о существующих таблицах
+    before_info = list_archive_tables()
+    
     # Запускаем очистку архивных таблиц
     result = cleanup_old_archive_tables(keep_count)
     
+    # Получаем информацию после очистки
+    after_info = list_archive_tables()
+    
+    # Проверяем, является ли это AJAX запросом
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': f"Сохранено последних архивных таблиц: {result['total_kept']}. Удалено: {result['total_deleted']}.",
+                'total_kept': result['total_kept'],
+                'total_deleted': result['total_deleted'],
+                'before_cleanup': before_info,
+                'after_cleanup': after_info
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f"Ошибка при очистке архивных таблиц: {result.get('error', 'Неизвестная ошибка')}",
+                'before_cleanup': before_info
+            })
+    
+    # Для обычных запросов (не AJAX) - стандартное поведение
     if result['success']:
         messages.info(
             request, 
@@ -392,6 +418,20 @@ def cleanup_archives(request):
     
     # Перенаправляем на страницу истории импорта
     return redirect('subscribers:import_history')
+
+@user_passes_test(is_admin, login_url='subscribers:search')
+def list_archives(request):
+    """Представление для просмотра списка архивных таблиц (только для администраторов)"""
+    from subscribers.tasks import list_archive_tables
+    from django.http import JsonResponse
+    
+    result = list_archive_tables()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse(result)
+    
+    # Для обычных запросов показываем страницу
+    return render(request, 'subscribers/archive_list.html', {'archive_info': result})
 
 @login_required
 def search_subscribers(request):

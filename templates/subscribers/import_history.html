@@ -11,10 +11,12 @@
             <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> К списку абонентов
             </a>
-            <a href="{% url 'subscribers:cleanup_archives' %}" class="btn btn-outline-danger ms-2" 
-               onclick="return confirm('Вы уверены, что хотите очистить старые архивные таблицы? Будут оставлены только 3 последние.')">
+            <button id="list-archives-btn" class="btn btn-outline-info ms-2" type="button">
+                <i class="bi bi-list"></i> Показать архивы
+            </button>
+            <button id="cleanup-archives-btn" class="btn btn-outline-danger ms-2" type="button">
                 <i class="bi bi-trash"></i> Очистить старые архивы
-            </a>
+            </button>
             <a href="{% url 'subscribers:import_csv' %}" class="btn btn-primary ms-2">
                 <i class="bi bi-file-earmark-arrow-up"></i> Новый импорт
             </a>
@@ -158,4 +160,119 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cleanupBtn = document.getElementById('cleanup-archives-btn');
+    const listArchivesBtn = document.getElementById('list-archives-btn');
+    
+    // Обработчик для кнопки "Показать архивы"
+    if (listArchivesBtn) {
+        listArchivesBtn.addEventListener('click', function() {
+            // Блокируем кнопку на время выполнения
+            listArchivesBtn.disabled = true;
+            listArchivesBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Загрузка...';
+            
+            // Выполняем AJAX запрос для получения списка архивов
+            fetch('{% url "subscribers:list_archives" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let message = `Найдено архивных таблиц: ${data.total_count}\n\n`;
+                    
+                    if (data.tables && data.tables.length > 0) {
+                        data.tables.forEach(table => {
+                            message += `📋 ${table.name}\n`;
+                            message += `   Колонок: ${table.columns}, Строк: ${table.rows}\n\n`;
+                        });
+                    } else {
+                        message += 'Архивные таблицы не найдены.';
+                    }
+                    
+                    alert(message);
+                } else {
+                    alert(`Ошибка при получении списка архивов: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при получении списка архивов:', error);
+                alert('Произошла ошибка при получении списка архивов');
+            })
+            .finally(() => {
+                // Возвращаем кнопку в исходное состояние
+                listArchivesBtn.disabled = false;
+                listArchivesBtn.innerHTML = '<i class="bi bi-list"></i> Показать архивы';
+            });
+        });
+    }
+    
+    if (cleanupBtn) {
+        cleanupBtn.addEventListener('click', function() {
+            if (confirm('Вы уверены, что хотите очистить старые архивные таблицы? Будут оставлены только 3 последние.')) {
+                // Блокируем кнопку на время выполнения
+                cleanupBtn.disabled = true;
+                cleanupBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Очистка...';
+                
+                // Выполняем AJAX запрос
+                fetch('{% url "subscribers:cleanup_archives" %}', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        // Если произошло перенаправление, перезагружаем страницу
+                        window.location.reload();
+                    } else {
+                        return response.json();
+                    }
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Формируем детальное сообщение
+                        let message = `Архивные таблицы успешно очищены!\n\n${data.message}\n\n`;
+                        
+                        if (data.before_cleanup && data.after_cleanup) {
+                            message += `До очистки: ${data.before_cleanup.total_count} таблиц\n`;
+                            message += `После очистки: ${data.after_cleanup.total_count} таблиц\n`;
+                            message += `Удалено: ${data.total_deleted} таблиц`;
+                        }
+                        
+                        // Показываем сообщение об успехе с деталями
+                        alert(message);
+                        // Перезагружаем страницу для обновления данных
+                        window.location.reload();
+                    } else {
+                        // Показываем ошибку
+                        let errorMessage = `Ошибка при очистке: ${data.error}`;
+                        
+                        if (data.before_cleanup) {
+                            errorMessage += `\n\nНайдено архивных таблиц: ${data.before_cleanup.total_count}`;
+                        }
+                        
+                        alert(errorMessage);
+                        // Возвращаем кнопку в исходное состояние
+                        cleanupBtn.disabled = false;
+                        cleanupBtn.innerHTML = '<i class="bi bi-trash"></i> Очистить старые архивы';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при очистке архивов:', error);
+                    alert('Произошла ошибка при очистке архивных таблиц');
+                    // Возвращаем кнопку в исходное состояние
+                    cleanupBtn.disabled = false;
+                    cleanupBtn.innerHTML = '<i class="bi bi-trash"></i> Очистить старые архивы';
+                });
+            }
+        });
+    }
+});
+</script>
+
 {% endblock %} 

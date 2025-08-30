@@ -1562,31 +1562,60 @@ def cleanup_old_archive_tables(keep_count=3):
             """)
             archive_tables = [row[0] for row in cursor.fetchall()]
             
+            logger.info(f"🔍 Найдено архивных таблиц: {len(archive_tables)}")
+            if archive_tables:
+                logger.info(f"📋 Список архивных таблиц: {archive_tables}")
+            
             if len(archive_tables) <= keep_count:
+                logger.info(f"✅ Все {len(archive_tables)} архивных таблиц сохранены (лимит: {keep_count})")
                 return {
                     "success": True,
                     "total_kept": len(archive_tables),
                     "total_deleted": 0,
-                    "message": f"Все {len(archive_tables)} архивных таблиц сохранены"
+                    "message": f"Все {len(archive_tables)} архивных таблиц сохранены (лимит: {keep_count})"
                 }
             
             # Определяем таблицы для удаления
             tables_to_keep = archive_tables[:keep_count]
             tables_to_delete = archive_tables[keep_count:]
             
+            logger.info(f"💾 Таблицы для сохранения: {tables_to_keep}")
+            logger.info(f"🗑️ Таблицы для удаления: {tables_to_delete}")
+            
             # Удаляем устаревшие таблицы
+            deleted_count = 0
             for table in tables_to_delete:
-                cursor.execute(f"DROP TABLE IF EXISTS {table}")
+                try:
+                    logger.info(f"🗑️ Удаляем таблицу: {table}")
+                    cursor.execute(f"DROP TABLE IF EXISTS {table}")
+                    
+                    # Проверяем, что таблица действительно удалена
+                    cursor.execute("""
+                        SELECT COUNT(*) 
+                        FROM information_schema.tables 
+                        WHERE table_name = %s
+                    """, [table])
+                    
+                    if cursor.fetchone()[0] == 0:
+                        logger.info(f"✅ Таблица {table} успешно удалена")
+                        deleted_count += 1
+                    else:
+                        logger.warning(f"⚠️ Таблица {table} не была удалена")
+                        
+                except Exception as table_error:
+                    logger.error(f"❌ Ошибка при удалении таблицы {table}: {str(table_error)}")
+            
+            logger.info(f"🏁 Очистка завершена. Сохранено: {len(tables_to_keep)}, удалено: {deleted_count}")
             
             return {
                 "success": True,
                 "total_kept": len(tables_to_keep),
-                "total_deleted": len(tables_to_delete),
-                "message": f"Сохранено: {len(tables_to_keep)}, удалено: {len(tables_to_delete)}"
+                "total_deleted": deleted_count,
+                "message": f"Сохранено: {len(tables_to_keep)}, удалено: {deleted_count}"
             }
             
     except Exception as e:
-        print(f"Ошибка при очистке старых архивных таблиц: {str(e)}")
+        logger.error(f"❌ Ошибка при очистке старых архивных таблиц: {str(e)}")
         return {
             "success": False,
             "error": str(e)
@@ -1604,4 +1633,64 @@ def cleanup_old_archive_tables_task(keep_count=3):
     cleanup_old_archive_tables_task.delay = delay
     
     # Выполняем реальную работу
-    return cleanup_old_archive_tables(keep_count) 
+    return cleanup_old_archive_tables(keep_count)
+
+def list_archive_tables():
+    """
+    Функция для диагностики - показывает все существующие архивные таблицы.
+    
+    Returns:
+        dict: Информация об архивных таблицах
+    """
+    from django.db import connection
+    
+    try:
+        with connection.cursor() as cursor:
+            # Получаем список всех архивных таблиц
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name LIKE 'subscribers_subscriber_archive_%'
+                ORDER BY table_name DESC
+            """)
+            archive_tables = [row[0] for row in cursor.fetchall()]
+            
+            result = {
+                "success": True,
+                "total_count": len(archive_tables),
+                "tables": []
+            }
+            
+            for table_name in archive_tables:
+                # Получаем количество колонок в таблице
+                try:
+                    cursor.execute("""
+                        SELECT COUNT(*) 
+                        FROM information_schema.columns 
+                        WHERE table_name = %s
+                    """, [table_name])
+                    column_count = cursor.fetchone()[0]
+                except Exception:
+                    column_count = "Ошибка подсчета"
+                
+                # Получаем количество строк в таблице
+                try:
+                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                    row_count = cursor.fetchone()[0]
+                except Exception:
+                    row_count = "Ошибка подсчета"
+                
+                result["tables"].append({
+                    "name": table_name,
+                    "columns": column_count,
+                    "rows": row_count
+                })
+            
+            return result
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка при получении списка архивных таблиц: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        } 

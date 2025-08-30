@@ -22,6 +22,7 @@ urlpatterns = [
     path('import/finalize/<int:import_id>/', views.import_finalize, name='import_finalize'),
     path('import/errors/<int:import_id>/', views.import_errors, name='import_errors'),
     path('import/cleanup-archives/', views.cleanup_archives, name='cleanup_archives'),
+    path('import/list-archives/', views.list_archives, name='list_archives'),
     
     # Поиск абонентов
     path('search/', views.search_subscribers, name='search'),
