@@ -87,7 +87,7 @@
                             <div class="card bg-light">
                                 <div class="card-body text-center">
                                     <h6 class="card-title">Статус</h6>
-                                                                                                                                                 {% if import_history.status == 'completed' %}
+                                    {% if import_history.status == 'completed' %}
                                         <span class="badge bg-success fs-6">Завершено</span>
                                     {% elif import_history.status == 'temp_completed' %}
                                         <span class="badge bg-warning text-dark fs-6">Ожидает финализации</span>
@@ -107,14 +107,14 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6">
-                            <div class="card bg-light">
-                                <div class="card-body text-center">
-                                    <h6 class="card-title">Всего записей</h6>
-                                    <span class="fs-4">{{ import_history.records_count }}</span>
-                                </div>
-                            </div>
-                        </div>
+                                                 <div class="col-6">
+                             <div class="card bg-light">
+                                 <div class="card-body text-center">
+                                     <h6 class="card-title">Всего записей</h6>
+                                     <span id="total-records-count" class="fs-4">{{ import_history.records_count }}</span>
+                                 </div>
+                             </div>
+                         </div>
                         <div class="col-6">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
@@ -123,24 +123,24 @@
                                 </div>
                             </div>
                         </div>
-                                                 <div class="col-6">
-                             <div class="card bg-light">
-                                 <div class="card-body text-center">
-                                     <h6 class="card-title">Ошибок</h6>
-                                     <span id="failed-count" class="fs-4 text-danger">{{ import_history.records_failed }}</span>
-                                 </div>
-                             </div>
-                         </div>
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Ошибок</h6>
+                                    <span id="failed-count" class="fs-4 text-danger">{{ import_history.records_failed }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mt-3">
                         <div class="progress">
                             <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                         </div>
-                                                 <div class="d-flex justify-content-between small mt-1">
-                             <span>Обработано: <span id="processed-count">{{ import_history.processed_rows }}</span> / <span id="total-count">{{ import_history.records_count }}</span></span>
-                         </div>
-                                                                                                 <div class="mt-2 d-flex gap-2">
+                        <div class="d-flex justify-content-between small mt-1">
+                            <span>Обработано: <span id="processed-count">{{ import_history.processed_rows }}</span> / <span id="total-count">{{ import_history.records_count }}</span></span>
+                        </div>
+                        <div class="mt-2 d-flex gap-2">
                             <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">Пауза</button>
                             <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
                             <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">Отмена</button>
@@ -161,142 +161,173 @@
                                 <span id="step-counting" class="badge bg-secondary">...</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Архивация текущих данных
-                                <span id="step-archiving" class="badge bg-secondary">...</span>
+                                Создание временной таблицы
+                                <span id="step-creating_temp_table" class="badge bg-secondary">...</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 Импорт записей
                                 <span id="step-processing" class="badge bg-secondary">...</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Завершение
-                                <span id="step-completed" class="badge bg-secondary">...</span>
+                                Ожидание финализации
+                                <span id="step-waiting_finalization" class="badge bg-secondary">...</span>
                             </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Финализация
+                                <span id="step-finalizing" class="badge bg-secondary">...</span>
+                            </li>
+                                                         <li class="list-group-item d-flex justify-content-between align-items-center">
+                                 Завершение
+                                 <span id="step-completed" class="badge bg-secondary">...</span>
+                             </li>
                         </ul>
                     </div>
 
-                                         <!-- Кнопка показа ошибок (скрыта по умолчанию, показывается JavaScript'ом) -->
-                     <div id="errors-button-container" class="mt-3" style="display: none;">
-                         <button id="show-errors-btn" class="btn btn-outline-danger btn-sm" type="button">
-                             <i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)
-                         </button>
-                     </div>
-                     
-                     <!-- Скрытый блок с ошибками -->
-                     <div id="errors-container" class="mt-3" style="display: none;">
-                         <h6 class="text-danger">Детали ошибок импорта:</h6>
-                         <div class="table-responsive">
-                             <table class="table table-sm table-bordered">
-                                 <thead class="table-light">
-                                     <tr>
-                                         <th>Строка</th>
-                                         <th>Ошибка</th>
-                                         <th>Исходные данные</th>
-                                     </tr>
-                                 </thead>
-                                 <tbody id="errors-table-body">
-                                     <!-- Содержимое таблицы будет заполнено JavaScript -->
-                                 </tbody>
-                             </table>
-                         </div>
-                         <div id="errors-info" class="text-muted small mt-2">
-                             <!-- Информация о количестве ошибок -->
-                         </div>
-                     </div>
+                    <!-- Кнопка показа ошибок (скрыта по умолчанию, показывается JavaScript'ом) -->
+                    <div id="errors-button-container" class="mt-3" style="display: none;">
+                        <button id="show-errors-btn" class="btn btn-outline-danger btn-sm" type="button">
+                            <i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)
+                        </button>
+                    </div>
+                    
+                    <!-- Скрытый блок с ошибками -->
+                    <div id="errors-container" class="mt-3" style="display: none;">
+                        <h6 class="text-danger">Детали ошибок импорта:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Строка</th>
+                                        <th>Ошибка</th>
+                                        <th>Исходные данные</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="errors-table-body">
+                                    <!-- Содержимое таблицы будет заполнено JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="errors-info" class="text-muted small mt-2">
+                            <!-- Информация о количестве ошибок -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    
 </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const importId = {{ import_history.id }};
-         const bar = document.getElementById('import-progress-bar');
-     const processedEl = document.getElementById('processed-count');
-     const totalEl = document.getElementById('total-count');
-                   const resumeBtn = document.getElementById('resume-button');
+    const bar = document.getElementById('import-progress-bar');
+    const processedEl = document.getElementById('processed-count');
+    const totalEl = document.getElementById('total-count');
+    const resumeBtn = document.getElementById('resume-button');
     const pauseBtn = document.getElementById('pause-button');
     const cancelBtn = document.getElementById('cancel-button');
     const finalizeBtn = document.getElementById('finalize-button');
-     const showErrorsBtn = document.getElementById('show-errors-btn');
-     const errorsContainer = document.getElementById('errors-container');
-     const errorsTableBody = document.getElementById('errors-table-body');
-     const errorsInfo = document.getElementById('errors-info');
-     const errorsButtonContainer = document.getElementById('errors-button-container');
-     const errorsCount = document.getElementById('errors-count');
+    const showErrorsBtn = document.getElementById('show-errors-btn');
+    const errorsContainer = document.getElementById('errors-container');
+    const errorsTableBody = document.getElementById('errors-table-body');
+    const errorsInfo = document.getElementById('errors-info');
+    const errorsButtonContainer = document.getElementById('errors-button-container');
+    const errorsCount = document.getElementById('errors-count');
 
-         // Функция для загрузки ошибок импорта
-     function loadErrors() {
-         if (!errorsContainer || !errorsTableBody || !errorsInfo) return;
-         
-         fetch(`{% url 'subscribers:import_errors' 0 %}`.replace('0', importId))
-             .then(r => r.json())
-             .then(data => {
-                 if (data.errors && data.errors.length > 0) {
-                     // Очищаем таблицу
-                     errorsTableBody.innerHTML = '';
-                     
-                     // Добавляем ошибки (максимум 10)
-                     const errorsToShow = data.errors.slice(0, 10);
-                     errorsToShow.forEach(error => {
-                         const row = document.createElement('tr');
-                         row.innerHTML = `
-                             <td class="text-center">${error.row_index}</td>
-                             <td class="text-danger">${error.message}</td>
-                             <td class="font-monospace small">
-                                 ${error.raw_data ? error.raw_data.substring(0, 100) : '<em class="text-muted">Данные не сохранены</em>'}
-                             </td>
-                         `;
-                         errorsTableBody.appendChild(row);
-                     });
-                     
-                     // Обновляем информацию о количестве
-                     if (data.total_errors > 10) {
-                         errorsInfo.innerHTML = `
-                             Показано первых 10 ошибок из ${data.total_errors}. 
-                             Для просмотра всех ошибок воспользуйтесь админ-панелью.
-                         `;
-                     } else {
-                         errorsInfo.innerHTML = `Показано ${data.total_errors} ошибок.`;
-                     }
-                     
-                     // Показываем контейнер
-                     errorsContainer.style.display = 'block';
-                 }
-             })
-             .catch(error => {
-                 console.error('Ошибка при загрузке ошибок:', error);
-             });
-     }
-     
-     // Функция для обновления кнопки ошибок
-     function updateErrorsButton(failedCount) {
-         if (errorsButtonContainer && errorsCount) {
-             if (failedCount > 0) {
-                 // Показываем кнопку и обновляем счетчик
-                 errorsButtonContainer.style.display = 'block';
-                 errorsCount.textContent = failedCount;
-                 
-                 // Если таблица уже открыта, обновляем данные
-                 if (errorsContainer && errorsContainer.style.display !== 'none') {
-                     loadErrors();
-                 }
-             } else {
-                 // Скрываем кнопку и таблицу если ошибок нет
-                 errorsButtonContainer.style.display = 'none';
-                 errorsContainer.style.display = 'none';
-             }
-         }
-     }
-     
-     function markStep(phase){
-        const steps = ['initializing','counting','archiving','processing','completed'];
+    // Функция для загрузки ошибок импорта
+    function loadErrors() {
+        if (!errorsContainer || !errorsTableBody || !errorsInfo) return;
+        
+        fetch(`{% url 'subscribers:import_errors' 0 %}`.replace('0', importId))
+            .then(r => r.json())
+            .then(data => {
+                if (data.errors && data.errors.length > 0) {
+                    // Очищаем таблицу
+                    errorsTableBody.innerHTML = '';
+                    
+                    // Добавляем ошибки (максимум 10)
+                    const errorsToShow = data.errors.slice(0, 10);
+                    errorsToShow.forEach(error => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="text-center">${error.row_index}</td>
+                            <td class="text-danger">${error.message}</td>
+                            <td class="font-monospace small">
+                                ${error.raw_data ? error.raw_data.substring(0, 100) : '<em class="text-muted">Данные не сохранены</em>'}
+                            </td>
+                        `;
+                        errorsTableBody.appendChild(row);
+                    });
+                    
+                    // Обновляем информацию о количестве
+                    if (data.total_errors > 10) {
+                        errorsInfo.innerHTML = `
+                            Показано первых 10 ошибок из ${data.total_errors}. 
+                            Для просмотра всех ошибок воспользуйтесь админ-панелью.
+                        `;
+                    } else {
+                        errorsInfo.innerHTML = `Показано ${data.total_errors} ошибок.`;
+                    }
+                    
+                    // Показываем контейнер
+                    errorsContainer.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при загрузке ошибок:', error);
+            });
+    }
+    
+    // Функция для обновления кнопки ошибок
+    function updateErrorsButton(failedCount) {
+        if (errorsButtonContainer && errorsCount) {
+            if (failedCount > 0) {
+                // Показываем кнопку и обновляем счетчик
+                errorsButtonContainer.style.display = 'block';
+                errorsCount.textContent = failedCount;
+                
+                // Если таблица уже открыта, обновляем данные
+                if (errorsContainer && errorsContainer.style.display !== 'none') {
+                    loadErrors();
+                }
+            } else {
+                // Скрываем кнопку и таблицу если ошибок нет
+                errorsButtonContainer.style.display = 'none';
+                errorsContainer.style.display = 'none';
+            }
+        }
+    }
+    
+    function markStep(phase){
+        const steps = ['initializing','counting','creating_temp_table','processing','waiting_finalization','finalizing','completed'];
+        
+        // Если импорт отменен, помечаем только невыполненные этапы как отменено
+        if (phase === 'cancelled') {
+            steps.forEach(s => {
+                const el = document.getElementById('step-' + s);
+                if (!el) return;
+                
+                // Проверяем, был ли этап уже выполнен
+                const currentClasses = el.classList;
+                if (currentClasses.contains('bg-success')) {
+                    // Этап уже выполнен - оставляем "OK"
+                    el.classList.remove('bg-secondary','bg-info','bg-warning','bg-danger');
+                    el.classList.add('bg-success');
+                    el.textContent = 'OK';
+                } else {
+                    // Этап не был выполнен - помечаем как отменено
+                    el.classList.remove('bg-secondary','bg-info','bg-success','bg-warning','bg-danger');
+                    el.classList.add('bg-danger');
+                    el.textContent = 'Отменено';
+                }
+            });
+            return;
+        }
+        
         steps.forEach(s => {
             const el = document.getElementById('step-' + s);
             if (!el) return;
-            el.classList.remove('bg-secondary','bg-info','bg-success');
+            el.classList.remove('bg-secondary','bg-info','bg-success','bg-warning','bg-danger');
             el.textContent = '...';
         });
         const currentIdx = steps.indexOf(phase);
@@ -310,8 +341,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 el.classList.add('bg-success');
                 el.textContent = 'OK';
             } else if (idx === currentIdx) {
-                el.classList.add('bg-info');
-                el.textContent = 'Выполняется';
+                if (phase === 'waiting_finalization') {
+                    el.classList.add('bg-warning');
+                    el.textContent = 'Ожидает';
+                } else if (phase === 'completed') {
+                    el.classList.add('bg-success');
+                    el.textContent = 'OK';
+                } else {
+                    el.classList.add('bg-info');
+                    el.textContent = 'Выполняется';
+                }
             } else {
                 el.classList.add('bg-secondary');
                 el.textContent = '...';
@@ -322,6 +361,15 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUI(data){
         const total = data.total || 0;
         const processed = data.processed || 0;
+        
+        console.log('updateUI - данные:', { 
+            total, 
+            processed, 
+            records_count: data.records_count, 
+            status: data.status,
+            all_data: data  // Логируем все данные для отладки
+        });
+        
         if (total > 0) {
             const pct = typeof data.progress_percent === 'number' ? data.progress_percent : Math.floor((processed / total) * 100);
             bar.style.width = pct + '%';
@@ -332,28 +380,54 @@ document.addEventListener('DOMContentLoaded', function() {
             bar.setAttribute('aria-valuenow', 0);
             bar.textContent = '0%';
         }
-                 processedEl.textContent = processed;
-         totalEl.textContent = total;
+        
+        processedEl.textContent = processed;
+        
+        // Обновляем поле "Всего записей" из data.records_count если оно доступно
+        // При отмене импорта не изменяем поле "Всего записей"
+        if (data.status === 'cancelled') {
+            console.log('updateUI - импорт отменен, поле "Всего записей" не изменяется');
+        } else if (data.records_count !== undefined && data.records_count > 0) {
+            totalEl.textContent = data.records_count;
+            console.log('updateUI - обновлено поле "Всего записей" из records_count:', data.records_count);
+        } else if (total > 0) {
+            totalEl.textContent = total;
+            console.log('updateUI - обновлено поле "Всего записей" из total:', total);
+        } else {
+            totalEl.textContent = '0';
+            console.log('updateUI - поле "Всего записей" установлено в 0');
+        }
+        
+        console.log('updateUI - обновлены элементы:', { 
+            processedEl: processedEl.textContent, 
+            totalEl: totalEl.textContent 
+        });
 
-                 if (data.phase) markStep(data.phase);
-                 // обновляем числовые блоки без перезагрузки
-         const createdEl = document.getElementById('created-count');
-         const failedEl = document.getElementById('failed-count');
-         if (createdEl && typeof data.records_created === 'number') createdEl.textContent = data.records_created;
-         if (failedEl && typeof data.records_failed === 'number') {
-             failedEl.textContent = data.records_failed;
-             // Всегда устанавливаем красный цвет для ошибок
-             failedEl.className = 'fs-4 text-danger';
-             
-             // Обновляем кнопку ошибок
-             updateErrorsButton(data.records_failed);
-         }
+        if (data.phase) markStep(data.phase);
+        
+        // обновляем числовые блоки без перезагрузки
+        const createdEl = document.getElementById('created-count');
+        const failedEl = document.getElementById('failed-count');
+        if (createdEl && typeof data.records_created === 'number') createdEl.textContent = data.records_created;
+        if (failedEl && typeof data.records_failed === 'number') {
+            failedEl.textContent = data.records_failed;
+            // Всегда устанавливаем красный цвет для ошибок
+            failedEl.className = 'fs-4 text-danger';
+            
+            // Обновляем кнопку ошибок
+            updateErrorsButton(data.records_failed);
+        }
 
         // Обновляем видимость кнопок
         const showResume = (data.status === 'failed' || data.status === 'pending' || data.status === 'paused');
         const showPause = (data.status === 'processing');
         const showCancel = (data.status === 'processing' || data.status === 'paused' || data.status === 'pending');
         const showFinalize = (data.status === 'temp_completed');
+        
+        // Если импорт отменен, показываем все этапы как отменено
+        if (data.status === 'cancelled') {
+            markStep('cancelled');
+        }
         
         // Обновляем статус в заголовке карточки
         const statusBadge = document.querySelector('.card-body .badge');
@@ -386,6 +460,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
+        // Обновляем поле "Всего записей" в карточке статистики
+        // При отмене импорта не изменяем поле "Всего записей"
+        const totalRecordsCountEl = document.getElementById('total-records-count');
+        if (data.status === 'cancelled') {
+            console.log('updateUI - импорт отменен, поле "Всего записей" в карточке не изменяется');
+        } else if (totalRecordsCountEl && data.records_count !== undefined) {
+            totalRecordsCountEl.textContent = data.records_count;
+            console.log('updateUI - обновлено поле "Всего записей" в карточке:', data.records_count);
+        }
+        
         resumeBtn.style.display = showResume ? 'inline-block' : 'none';
         pauseBtn.style.display = showPause ? 'inline-block' : 'none';
         cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
@@ -405,7 +489,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 console.log('Статус импорта обновлен:', data);
+                console.log('Перед updateUI - totalEl.textContent:', totalEl.textContent);
                 updateUI(data);
+                console.log('После updateUI - totalEl.textContent:', totalEl.textContent);
                 if (data.status === 'processing' || data.status === 'paused' || data.status === 'pending') {
                     setTimeout(poll, 1500);
                 } else if (data.status === 'temp_completed') {
@@ -437,6 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Ошибка при возобновлении импорта:', error);
             });
     });
+    
     pauseBtn?.addEventListener('click', function(){
         console.log('Кнопка "Пауза" нажата для импорта', importId);
         fetch('{% url "subscribers:import_pause" 0 %}'.replace('0', importId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
@@ -449,75 +536,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Ошибка при паузе импорта:', error);
             });
     });
-         cancelBtn?.addEventListener('click', function(){
-         if (!confirm('Остановить импорт? Действие нельзя отменить.')) return;
-         console.log('Кнопка "Отмена" нажата для импорта', importId);
-         fetch('{% url "subscribers:import_cancel" 0 %}'.replace('0', importId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
-             .then(r => r.json())
-             .then(data => {
-                 console.log('Ответ от сервера при отмене:', data);
-                 poll();
-             })
-             .catch(error => {
-                 console.error('Ошибка при отмене импорта:', error);
-             });
-     });
+    
+    cancelBtn?.addEventListener('click', function(){
+        if (!confirm('Остановить импорт? Действие нельзя отменить.')) return;
+        console.log('Кнопка "Отмена" нажата для импорта', importId);
+        fetch('{% url "subscribers:import_cancel" 0 %}'.replace('0', importId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
+            .then(r => r.json())
+            .then(data => {
+                console.log('Ответ от сервера при отмене:', data);
+                poll();
+            })
+            .catch(error => {
+                console.error('Ошибка при отмене импорта:', error);
+            });
+    });
 
-     // Обработчик для кнопки финализации
-     finalizeBtn?.addEventListener('click', function(){
-         if (!confirm('Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить.')) return;
-         console.log('Кнопка "Финализировать" нажата для импорта', importId);
-         
-         // Блокируем кнопку на время выполнения
-         finalizeBtn.disabled = true;
-         finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Финализация...';
-         
-         fetch('{% url "subscribers:import_finalize" 0 %}'.replace('0', importId), {
-             method: 'POST', 
-             headers: { 
-                 'X-Requested-With': 'XMLHttpRequest', 
-                 'X-CSRFToken': getCookie('csrftoken') || '' 
-             }
-         })
-         .then(r => r.json())
-         .then(data => {
-             console.log('Ответ от сервера при финализации:', data);
-             if (data.success) {
-                 alert('Импорт успешно финализирован!');
-                 // Обновляем статус импорта
-                 setTimeout(poll, 1000);
-             } else {
-                 alert('Ошибка при финализации: ' + data.error);
-                 // Возвращаем кнопку в исходное состояние
-                 finalizeBtn.disabled = false;
-                 finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
-             }
-         })
-         .catch((error) => {
-             console.error('Ошибка при финализации импорта:', error);
-             alert('Произошла ошибка при финализации импорта');
-             // Возвращаем кнопку в исходное состояние
-             finalizeBtn.disabled = false;
-             finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
-         });
-     });
-     
-     // Обработчик для кнопки показа ошибок
-     showErrorsBtn?.addEventListener('click', function(){
-         if (errorsContainer.style.display === 'none') {
-             loadErrors();
-         } else {
-             errorsContainer.style.display = 'none';
-             this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)`;
-         }
-     });
+    // Обработчик для кнопки финализации
+    finalizeBtn?.addEventListener('click', function(){
+        if (!confirm('Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить.')) return;
+        console.log('Кнопка "Финализировать" нажата для импорта', importId);
+        
+        // Блокируем кнопку на время выполнения
+        finalizeBtn.disabled = true;
+        finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Финализация...';
+        
+        fetch('{% url "subscribers:import_finalize" 0 %}'.replace('0', importId), {
+            method: 'POST', 
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest', 
+                'X-CSRFToken': getCookie('csrftoken') || '' 
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            console.log('Ответ от сервера при финализации:', data);
+            if (data.success) {
+                alert('Импорт успешно финализирован!');
+                // Обновляем статус импорта
+                setTimeout(poll, 1000);
+            } else {
+                alert('Ошибка при финализации: ' + data.error);
+                // Возвращаем кнопку в исходное состояние
+                finalizeBtn.disabled = false;
+                finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+            }
+        })
+        .catch((error) => {
+            console.error('Ошибка при финализации импорта:', error);
+            alert('Произошла ошибка при финализации импорта');
+            // Возвращаем кнопку в исходное состояние
+            finalizeBtn.disabled = false;
+            finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+        });
+    });
+    
+    // Обработчик для кнопки показа ошибок
+    showErrorsBtn?.addEventListener('click', function(){
+        if (errorsContainer.style.display === 'none') {
+            loadErrors();
+        } else {
+            errorsContainer.style.display = 'none';
+            this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)`;
+        }
+    });
 
-     // Инициализация: показываем кнопку ошибок если они уже есть
-     if ({{ import_history.records_failed }} > 0) {
-         updateErrorsButton({{ import_history.records_failed }});
-     }
-     
-     poll();
+    // Инициализация: показываем кнопку ошибок если они уже есть
+    if ({{ import_history.records_failed }} > 0) {
+        updateErrorsButton({{ import_history.records_failed }});
+    }
+    
+    poll();
 });
 </script>
 {% endblock %} 

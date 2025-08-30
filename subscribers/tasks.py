@@ -126,6 +126,7 @@ def _finalize_import(import_history):
             # 5. Обновляем ImportHistory
             import_history.archive_table_name = archive_table_name
             import_history.temp_table_name = None
+            # Статус и фаза будут обновлены в views.py после успешной финализации
             import_history.save()
             
             logger.info("🎉 Финализация импорта завершена успешно!")
@@ -628,8 +629,12 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
     try:
         # ПРОВЕРКА ФЛАГОВ ПРЯМО ПЕРЕД СОХРАНЕНИЕМ ЗАПИСИ
         import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
-        if import_history.cancel_requested or import_history.pause_requested:
-            # Если запрошена пауза или отмена, просто возвращаем текущие счетчики
+        if import_history.cancel_requested:
+            # Если запрошена отмена, логируем и возвращаем текущие счетчики
+            logger.info(f"🛑 Отмена импорта обнаружена в _process_record_row для записи ID={parsed.get('original_id')}")
+            return created_count, failed_count, errors
+        if import_history.pause_requested:
+            # Если запрошена пауза, просто возвращаем текущие счетчики
             # Основной цикл обработает эти флаги
             return created_count, failed_count, errors
         
@@ -1020,19 +1025,33 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
         i = 0
         
         while i < len(all_lines):
-            # Heartbeat
-            import_history.last_heartbeat_at = timezone.now()
-            if logical_row_index % 50 == 0:
+            # Heartbeat и проверка отмены каждые 10 строк
+            if logical_row_index % 10 == 0:
+                import_history.last_heartbeat_at = timezone.now()
                 import_history.save(update_fields=['last_heartbeat_at'])
+                
+                # Частая проверка отмены
+                import_history.refresh_from_db(fields=['cancel_requested'])
+                if import_history.cancel_requested:
+                    logger.info(f"🛑 Импорт {import_history.id} отменен пользователем во время обработки")
+                    import_history.status = 'cancelled'
+                    import_history.stop_reason = 'Отмена пользователем'
+                    import_history.phase = 'cancelled'
+                    import_history.progress_percent = 0
+                    import_history.save()
+                    # Очищаем временную таблицу
+                    _cleanup_temp_table(import_history.temp_table_name)
+                    return created_count, failed_count, logical_row_index
 
-            # Управление: пауза / отмена
+            # Управление: пауза / отмена (основная проверка)
             import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
             
             if import_history.cancel_requested:
-                logger.info(f"Импорт {import_history.id} отменен пользователем")
+                logger.info(f"🛑 Импорт {import_history.id} отменен пользователем")
                 import_history.status = 'cancelled'
                 import_history.stop_reason = 'Отмена пользователем'
-                import_history.phase = 'completed'
+                import_history.phase = 'cancelled'
+                import_history.progress_percent = 0
                 import_history.save()
                 # Очищаем временную таблицу
                 _cleanup_temp_table(import_history.temp_table_name)
@@ -1047,10 +1066,11 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 while True:
                     import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
                     if import_history.cancel_requested:
-                        logger.info(f"Импорт {import_history.id} отменен во время паузы")
+                        logger.info(f"🛑 Импорт {import_history.id} отменен во время паузы")
                         import_history.status = 'cancelled'
                         import_history.stop_reason = 'Отмена пользователем'
-                        import_history.phase = 'completed'
+                        import_history.phase = 'cancelled'
+                        import_history.progress_percent = 0
                         import_history.save()
                         # Очищаем временную таблицу
                         _cleanup_temp_table(import_history.temp_table_name)
@@ -1326,10 +1346,24 @@ def process_csv_import_stream(import_history_id: int) -> None:
         try:
             import_history.phase = 'counting'
             import_history.save()
+            
+            # Проверяем отмену перед подсчетом
+            import_history.refresh_from_db(fields=['cancel_requested'])
+            if import_history.cancel_requested:
+                logger.info(f"🛑 Импорт {import_history_id} отменен пользователем на этапе подсчета")
+                import_history.status = 'cancelled'
+                import_history.phase = 'cancelled'
+                import_history.stop_reason = 'Отмена пользователем'
+                import_history.progress_percent = 0
+                import_history.save()
+                return
+            
             total = _count_total_records(file_path, delimiter, has_header)
+            logger.info(f"📊 Подсчитано записей: {total}")
             import_history.records_count = total
             import_history.progress_percent = 0
             import_history.save()
+            logger.info(f"✅ Количество записей сохранено в БД: {import_history.records_count}")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Не удалось подсчитать количество записей: {e}")
 
@@ -1339,6 +1373,18 @@ def process_csv_import_stream(import_history_id: int) -> None:
             logger.info("🏗️ Создание временной таблицы для импорта...")
             import_history.phase = 'creating_temp_table'
             import_history.save()
+            
+            # Проверяем отмену перед созданием временной таблицы
+            import_history.refresh_from_db(fields=['cancel_requested'])
+            if import_history.cancel_requested:
+                logger.info(f"🛑 Импорт {import_history_id} отменен пользователем на этапе создания временной таблицы")
+                import_history.status = 'cancelled'
+                import_history.phase = 'cancelled'
+                import_history.stop_reason = 'Отмена пользователем'
+                import_history.progress_percent = 0
+                import_history.save()
+                return
+            
             temp_table_name = f"subscribers_subscriber_temp_{int(timezone.now().timestamp())}"
             _create_temp_table(temp_table_name)
             import_history.temp_table_name = temp_table_name
@@ -1358,6 +1404,19 @@ def process_csv_import_stream(import_history_id: int) -> None:
     failed_count = import_history.records_failed or 0
     errors: list[str] = []
 
+    # Проверяем отмену перед началом обработки
+    import_history.refresh_from_db(fields=['cancel_requested'])
+    if import_history.cancel_requested:
+        logger.info(f"🛑 Импорт {import_history_id} отменен пользователем перед началом обработки")
+        import_history.status = 'cancelled'
+        import_history.phase = 'cancelled'
+        import_history.stop_reason = 'Отмена пользователем'
+        import_history.progress_percent = 0
+        import_history.save()
+        # Очищаем временную таблицу при отмене
+        _cleanup_temp_table(import_history.temp_table_name)
+        return
+
     # Используем новую логику с умным склеиванием строк
     try:
         created_count, failed_count, logical_row_index = _process_csv_lines_with_smart_joining(
@@ -1368,6 +1427,28 @@ def process_csv_import_stream(import_history_id: int) -> None:
         import_history.processed_rows = logical_row_index
         import_history.records_created = created_count
         import_history.records_failed = failed_count
+        
+        # Устанавливаем общее количество записей равным фактически обработанным
+        # если подсчет не удался или вернул 0
+        if not import_history.records_count or import_history.records_count == 0:
+            import_history.records_count = logical_row_index
+        # Также обновляем records_count если подсчет был неточным
+        elif abs(import_history.records_count - logical_row_index) > 0:
+            logger.info(f"📊 Корректируем количество записей: было {import_history.records_count}, стало {logical_row_index}")
+            import_history.records_count = logical_row_index
+        
+        # Проверяем, не был ли импорт отменен
+        import_history.refresh_from_db(fields=['cancel_requested'])
+        if import_history.cancel_requested:
+            logger.info(f"🛑 Импорт {import_history_id} был отменен пользователем после обработки")
+            import_history.status = 'cancelled'
+            import_history.phase = 'cancelled'
+            import_history.stop_reason = 'Отмена пользователем'
+            import_history.progress_percent = 0
+            import_history.save()
+            # Очищаем временную таблицу при отмене
+            _cleanup_temp_table(import_history.temp_table_name)
+            return
         
         # Завершение импорта во временную таблицу (без финализации)
         import_history.status = 'temp_completed'
@@ -1392,6 +1473,10 @@ def process_csv_import_stream(import_history_id: int) -> None:
         if import_history.temp_table_name and import_history.status in ['failed', 'cancelled']:
             logger.info(f"🧹 Очистка временной таблицы {import_history.temp_table_name}")
             _cleanup_temp_table(import_history.temp_table_name)
+        elif import_history.temp_table_name and import_history.status == 'temp_completed':
+            # Если импорт завершен успешно, но не финализирован, оставляем временную таблицу
+            logger.info(f"📁 Временная таблица {import_history.temp_table_name} сохранена для финализации")
+        
         _RUNNING_IMPORTS.pop(import_history_id, None)
         logger.info(f"🏁 Импорт {import_history_id} завершен. Статус: {import_history.status}")
 

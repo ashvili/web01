@@ -184,6 +184,7 @@ def import_status(request, import_id):
         'phase': getattr(import_history, 'phase', ''),
         'processed': import_history.processed_rows,
         'total': import_history.records_count,
+        'records_count': import_history.records_count,  # Добавляем records_count для JavaScript
         'progress_percent': getattr(import_history, 'progress_percent', 0),
         'running': is_import_running(import_history.id),
         'error_message': import_history.error_message or '',
