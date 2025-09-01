@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 from .models import Subscriber, ImportHistory, ImportError
 from .forms import CSVImportForm, ImportCSVForm, SearchForm
 from .tasks import process_csv_import_task_impl, start_import_async, is_import_running
+from accounts.utils import is_admin
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -38,9 +39,6 @@ from logs.utils import (
     log_action_decorator,
     LogUserAction
 )
-
-def is_admin(user):
-    return user.profile.user_type == 0  # 0 - Администратор
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')

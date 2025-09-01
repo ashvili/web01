@@ -1,4 +1,4 @@
-{% load static widget_tweaks %}
+{% load static widget_tweaks user_permissions %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -22,7 +22,7 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         {% if user.is_authenticated %}
-                        {% if user.profile.user_type == 0 %}
+                        {% if user|is_admin_user %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'subscribers:list' %}">Абоненты</a>
                         </li>
@@ -32,9 +32,7 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'accounts:user_list' %}">Пользователи</a>
                         </li>
-                        {% endif %}
-                        <!-- Пункт меню для логов (видим только для администраторов и персонала) -->
-                        {% if user.is_authenticated and user.is_superuser %}
+                        <!-- Пункт меню для логов (видим только для администраторов) -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">
                                 <i class="fas fa-history"></i> Логи действий

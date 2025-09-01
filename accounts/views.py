@@ -34,10 +34,12 @@ class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'accounts/home.html'
 
     def get(self, request, *args, **kwargs):
+        # Перенаправляем на поиск абонентов
+        return redirect('subscribers:search')
         # Если пользователь не администратор, перенаправляем на поиск абонентов
-        if not request.user.profile.is_admin():
-            return redirect('subscribers:search')
-        return super().get(request, *args, **kwargs)
+        # if not request.user.profile.is_admin():
+        #     return redirect('subscribers:search')
+        # return super().get(request, *args, **kwargs)
 
 # Представление для профиля пользователя
 class ProfileView(LoginRequiredMixin, UpdateView):

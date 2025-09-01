@@ -16,6 +16,7 @@ from django.db.models import Count
 
 from .models import UserActionLog
 from .forms import LogFilterForm
+from accounts.utils import is_admin
 
 
 def is_superadmin(user):
@@ -24,7 +25,7 @@ def is_superadmin(user):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def log_list(request):
     """Представление для просмотра списка логов действий пользователей"""
     form = LogFilterForm(request.GET or None)
@@ -65,7 +66,7 @@ def log_list(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def log_detail(request, log_id):
     """Представление для просмотра детальной информации о логе"""
     log = get_object_or_404(UserActionLog, id=log_id)
@@ -110,7 +111,7 @@ def log_detail(request, log_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def export_logs(request):
     """Представление для экспорта логов в CSV"""
     form = LogFilterForm(request.GET or None)
@@ -165,8 +166,8 @@ class LogDetailView(LoginRequiredMixin, DetailView):
     pk_url_kwarg = 'log_id'
     
     def get_queryset(self):
-        # Доступ только для суперпользователя
-        if self.request.user.is_superuser:
+        # Доступ только для администраторов
+        if is_admin(self.request.user):
             return super().get_queryset()
         return UserActionLog.objects.none()
     
@@ -197,7 +198,7 @@ class LogDetailView(LoginRequiredMixin, DetailView):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def clear_old_logs(request):
     """Ручная очистка устаревших логов (по кнопке)"""
     if request.method == 'POST':
@@ -211,7 +212,7 @@ def clear_old_logs(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def log_sessions(request):
     """
     Представление для просмотра логов, сгруппированных по логическим сессиям (logical_session_id).
@@ -254,7 +255,7 @@ def log_sessions(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def log_chain(request, log_id):
     """
     Представление для просмотра цепочки связанных действий (related_log).
@@ -287,7 +288,7 @@ def log_chain(request, log_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(is_admin)
 def activity_overview(request):
     """
     Визуализация активности пользователей: график количества действий по дням.

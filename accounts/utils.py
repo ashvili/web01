@@ -2,6 +2,131 @@ from django.contrib.auth.models import User, Permission
 from django.core.exceptions import PermissionDenied
 from functools import wraps
 
+def is_admin(user):
+    """
+    Унифицированная проверка, является ли пользователь администратором
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь является администратором
+    """
+    # print('user.profile.user_type = ', user.profile.user_type)
+    print('user.is_superuser = ', user.is_superuser)
+    # if user.is_superuser:
+    #     return True
+    
+    if hasattr(user, "profile"):
+        return user.profile.user_type == 0
+    
+    return False
+
+def is_user1(user):
+    """
+    Унифицированная проверка, является ли пользователь пользователем 1 уровня
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь является пользователем 1 уровня
+    """
+    if user.is_superuser:
+        return True
+    
+    if hasattr(user, "profile"):
+        return user.profile.user_type == 1
+    
+    return False
+
+def is_user2(user):
+    """
+    Унифицированная проверка, является ли пользователь пользователем 2 уровня
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь является пользователем 2 уровня
+    """
+    if hasattr(user, "profile"):
+        return user.profile.user_type == 2
+    
+    return False
+
+def can_view_logs(user):
+    """
+    Унифицированная проверка, может ли пользователь просматривать логи
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь может просматривать логи
+    """
+    return is_admin(user)
+
+def can_import_data(user):
+    """
+    Проверяет, может ли пользователь импортировать данные
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь может импортировать данные
+    """
+    return is_admin(user)
+
+def can_export_data(user):
+    """
+    Проверяет, может ли пользователь экспортировать данные
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь может экспортировать данные
+    """
+    if user.is_superuser:
+        return True
+    
+    if hasattr(user, "profile"):
+        return user.profile.can_export_data
+    
+    return False
+
+def can_view_history(user):
+    """
+    Проверяет, может ли пользователь просматривать историю импорта
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь может просматривать историю импорта
+    """
+    return is_admin(user)
+
+def can_view_imsi(user):
+    """
+    Проверяет, может ли пользователь видеть поле IMSI
+    
+    Args:
+        user: Экземпляр пользователя
+        
+    Returns:
+        bool: True, если пользователь может видеть поле IMSI
+    """
+    if user.is_superuser:
+        return True
+    
+    if hasattr(user, "profile"):
+        return user.profile.user_type != 2
+    
+    return False
+
 def user_has_permission(user, permission_codename):
     """
     Проверяет, имеет ли пользователь указанное разрешение
@@ -31,60 +156,7 @@ def user_has_permission(user, permission_codename):
     
     return False
 
-def can_view_imsi(user):
-    """
-    Проверяет, может ли пользователь видеть поле IMSI
-    
-    Args:
-        user: Экземпляр пользователя
-        
-    Returns:
-        bool: True, если пользователь может видеть поле IMSI
-    """
-    if user.is_superuser:
-        return True
-    
-    if hasattr(user, "profile"):
-        return user.profile.user_type != 2
-    
-    return False
-
-def can_import_data(user):
-    """
-    Проверяет, может ли пользователь импортировать данные
-    
-    Args:
-        user: Экземпляр пользователя
-        
-    Returns:
-        bool: True, если пользователь может импортировать данные
-    """
-    if user.is_superuser:
-        return True
-    
-    if hasattr(user, "profile"):
-        return user.profile.user_type == 0
-    
-    return False
-
-def can_view_history(user):
-    """
-    Проверяет, может ли пользователь просматривать историю импорта
-    
-    Args:
-        user: Экземпляр пользователя
-        
-    Returns:
-        bool: True, если пользователь может просматривать историю импорта
-    """
-    if user.is_superuser:
-        return True
-    
-    if hasattr(user, "profile"):
-        return user.profile.user_type == 0
-    
-    return False
-
+# Декораторы
 def imsi_required(view_func):
     """
     Декоратор для проверки права просмотра IMSI

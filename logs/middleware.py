@@ -13,6 +13,7 @@ class UserActionLoggingMiddleware(MiddlewareMixin):
         request._start_time = time.time()
 
     def process_response(self, request, response):
+        # Логируем действия ВСЕХ аутентифицированных пользователей
         if request.user.is_authenticated:
             # Не логируем просто открытие страницы поиска абонентов (GET и POST)
             if request.path == '/subscribers/search/':
