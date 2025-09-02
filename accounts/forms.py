@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from .models import UserProfile
+from .utils import clean_password
 
 class UserForm(forms.ModelForm):
     """Форма для редактирования пользователя"""
@@ -21,6 +22,66 @@ class UserForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'})
         }
+    
+    def __init__(self, *args, **kwargs):
+        self.instance = kwargs.get('instance')
+        super().__init__(*args, **kwargs)
+        
+        # Если это создание нового пользователя, пароль обязателен
+        if not self.instance or not self.instance.pk:
+            self.fields['password'].required = True
+            self.fields['password'].help_text = "Пароль обязателен для нового пользователя"
+        else:
+            self.fields['password'].help_text = "Оставьте пустым, чтобы не менять пароль"
+    
+    def clean_password(self):
+        """
+        Валидация пароля:
+        - Если поле пустое или содержит только непечатные символы, считаем пустым
+        - Очищаем от крайних непечатных символов
+        - При создании пользователя пароль обязателен
+        """
+        password = self.cleaned_data.get('password')
+        is_empty, cleaned_password = clean_password(password)
+        
+        # Если это создание нового пользователя и пароль пустой
+        if (not self.instance or not self.instance.pk) and is_empty:
+            raise forms.ValidationError("Пароль обязателен для нового пользователя")
+        
+        if is_empty:
+            # Возвращаем пустую строку для пустого пароля
+            return ""
+        
+        # Возвращаем очищенный пароль
+        return cleaned_password
+    
+    def save(self, commit=True):
+        """
+        Переопределяем сохранение для правильной обработки пароля
+        """
+        user = super().save(commit=False)
+        
+        # Получаем очищенный пароль
+        password = self.cleaned_data.get('password')
+
+        # Если пароль не пустой, обновляем его
+        if password:
+            from django.contrib.auth.hashers import make_password
+            user.password = make_password(password)
+
+        # Если это создание нового пользователя, пароль обязателен
+        if not self.instance or not self.instance.pk:
+            if not password:
+                raise forms.ValidationError("Пароль обязателен для нового пользователя")
+            user.password = make_password(password)
+        
+        if commit:
+            if not password:
+                user.save(update_fields=['username', 'first_name', 'last_name', 'email'])
+            else:
+                user.save()
+        
+        return user
 
 class UserProfileForm(forms.ModelForm):
     """Форма для редактирования профиля пользователя"""

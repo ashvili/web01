@@ -301,8 +301,7 @@ def user_edit(request, pk):
                 messages.success(request, '2FA отключена')
             
             # Обработка данных пользователя
-            if user_form.cleaned_data.get('password'):
-                user.password = make_password(user_form.cleaned_data['password'])
+            # Пароль обрабатывается в форме UserForm.save()
             user_form.save()
             profile_form.save()
             

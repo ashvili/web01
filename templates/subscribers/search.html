@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load user_permissions %}
 
 {% block title %}Поиск абонентов{% endblock %}
 
@@ -74,6 +75,9 @@
                             <th>Адрес</th>
                             <th>Паспортные данные</th>
                             <th>Дата рождения</th>
+                            {% if user|can_view_imsi_user %}
+                            <th>IMSI</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -97,6 +101,9 @@
                                     -
                                 {% endif %}
                             </td>
+                            {% if user|can_view_imsi_user %}
+                            <td>{{ subscriber.imsi|default:"-" }}</td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -171,9 +178,10 @@
             {% endif %}
         </div>
     </div>
-    {% elif search_performed %}
+    {% else %}
     <div class="alert alert-info">
-        <i class="fas fa-info-circle me-2"></i>По вашему запросу не найдено ни одного абонента
+        <i class="fas fa-info-circle me-2"></i>
+        Введите критерии поиска для начала поиска абонентов.
     </div>
     {% endif %}
 </div>

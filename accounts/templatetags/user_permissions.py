@@ -1,5 +1,5 @@
 from django import template
-from accounts.utils import is_admin, is_user1, is_user2, can_view_logs, can_import_data, can_export_data
+from accounts.utils import is_admin, is_user1, is_user2, can_view_logs, can_import_data, can_export_data, can_view_imsi
 
 register = template.Library()
 
@@ -32,3 +32,8 @@ def can_import_data_user(user):
 def can_export_data_user(user):
     """Template filter для проверки, может ли пользователь экспортировать данные"""
     return can_export_data(user)
+
+@register.filter
+def can_view_imsi_user(user):
+    """Template filter для проверки, может ли пользователь видеть поле IMSI"""
+    return can_view_imsi(user)

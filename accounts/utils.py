@@ -189,3 +189,27 @@ def history_required(view_func):
             raise PermissionDenied("У вас нет прав для просмотра истории импорта")
         return view_func(request, *args, **kwargs)
     return _wrapped_view
+
+def clean_password(password):
+    """
+    Проверяет и очищает пароль от крайних непечатных символов
+    
+    Args:
+        password: Строка пароля
+        
+    Returns:
+        tuple: (is_empty, cleaned_password)
+            - is_empty: True если пароль пустой или содержит только непечатные символы
+            - cleaned_password: Очищенный пароль без крайних непечатных символов
+    """
+    if not password:
+        return True, ""
+    
+    # Убираем крайние пробелы и непечатные символы
+    cleaned = password.strip()
+    
+    # Проверяем, содержит ли пароль только непечатные символы
+    if not cleaned or cleaned.isspace():
+        return True, ""
+    
+    return False, cleaned
