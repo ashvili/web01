@@ -142,8 +142,7 @@ class PasswordChangeForm(forms.Form):
     )
     new_password1 = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        label="Новый пароль",
-        help_text="Пароль должен содержать минимум 8 символов"
+        label="Новый пароль"
     )
     new_password2 = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
@@ -169,8 +168,7 @@ class PasswordChangeForm(forms.Form):
     
     def clean_new_password1(self):
         password = self.cleaned_data.get('new_password1')
-        if password and len(password) < 8:
-            raise forms.ValidationError("Пароль должен содержать минимум 8 символов")
+        # Убрано ограничение на минимальную длину пароля
         return password
     
     def save(self):

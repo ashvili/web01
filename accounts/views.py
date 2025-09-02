@@ -53,10 +53,8 @@ class ProfileView(LoginRequiredMixin, View):
             'email': request.user.email,
         }
         
-        print(f"DEBUG: initial_data = {initial_data}")
-        
         profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
-        password_form = PasswordChangeForm(user=request.user)
+        password_form = PasswordChangeForm(request.user)
         
         context = {
             'profile_form': profile_form,
@@ -74,7 +72,7 @@ class ProfileView(LoginRequiredMixin, View):
         
         if 'profile_submit' in request.POST:
             profile_form = UserProfileForm(request.POST, instance=request.user.profile, user=request.user, initial=initial_data)
-            password_form = PasswordChangeForm(user=request.user)
+            password_form = PasswordChangeForm(request.user)
             
             if profile_form.is_valid():
                 profile_form.save()
@@ -85,7 +83,7 @@ class ProfileView(LoginRequiredMixin, View):
                 messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
         elif 'password_submit' in request.POST:
             profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
-            password_form = PasswordChangeForm(request.POST, user=request.user)
+            password_form = PasswordChangeForm(request.user, request.POST)
             
             if password_form.is_valid():
                 password_form.save()
@@ -96,7 +94,7 @@ class ProfileView(LoginRequiredMixin, View):
                 messages.error(request, 'Пожалуйста, исправьте ошибки в форме пароля')
         else:
             profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
-            password_form = PasswordChangeForm(user=request.user)
+            password_form = PasswordChangeForm(request.user)
         
         context = {
             'profile_form': profile_form,
