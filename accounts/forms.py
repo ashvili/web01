@@ -85,26 +85,99 @@ class UserForm(forms.ModelForm):
 
 class UserProfileForm(forms.ModelForm):
     """Форма для редактирования профиля пользователя"""
+    # Добавляем поля пользователя
+    first_name = forms.CharField(
+        max_length=30,
+        label='Имя',
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    last_name = forms.CharField(
+        max_length=30,
+        label='Фамилия',
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    email = forms.EmailField(
+        label='Email',
+        widget=forms.EmailInput(attrs={'class': 'form-control'})
+    )
+    
     class Meta:
         model = UserProfile
-        fields = ['user_type', 'department', 'position', 'phone_number', 'can_import_data', 'can_export_data', 'can_view_logs']
+        fields = ['department', 'position', 'phone_number']
         labels = {
-            'user_type': 'Тип пользователя',
             'department': 'Отдел',
             'position': 'Должность',
-            'phone_number': 'Телефон',
-            'can_import_data': 'Может импортировать данные',
-            'can_export_data': 'Может экспортировать данные',
-            'can_view_logs': 'Может просматривать логи'
+            'phone_number': 'Телефон'
+        }
+        widgets = {
+            'department': forms.TextInput(attrs={'class': 'form-control'}),
+            'position': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control'})
         }
     
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+    
     def save(self, commit=True):
-        """Сохраняет форму и обновляет права пользователя"""
+        """Сохраняет форму и обновляет поля пользователя"""
         profile = super().save(commit=False)
+        
+        # Обновляем поля пользователя
+        if self.user:
+            self.user.first_name = self.cleaned_data['first_name']
+            self.user.last_name = self.cleaned_data['last_name']
+            self.user.email = self.cleaned_data['email']
+            self.user.save()
+        
         if commit:
             profile.save()
-            profile.update_permissions()
         return profile
+
+class PasswordChangeForm(forms.Form):
+    """Форма для смены пароля"""
+    old_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Текущий пароль"
+    )
+    new_password1 = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Новый пароль",
+        help_text="Пароль должен содержать минимум 8 символов"
+    )
+    new_password2 = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Подтверждение пароля"
+    )
+    
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+    
+    def clean_old_password(self):
+        old_password = self.cleaned_data.get('old_password')
+        if not self.user.check_password(old_password):
+            raise forms.ValidationError("Неверный текущий пароль")
+        return old_password
+    
+    def clean_new_password2(self):
+        password1 = self.cleaned_data.get('new_password1')
+        password2 = self.cleaned_data.get('new_password2')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError("Пароли не совпадают")
+        return password2
+    
+    def clean_new_password1(self):
+        password = self.cleaned_data.get('new_password1')
+        if password and len(password) < 8:
+            raise forms.ValidationError("Пароль должен содержать минимум 8 символов")
+        return password
+    
+    def save(self):
+        password = self.cleaned_data['new_password1']
+        self.user.set_password(password)
+        self.user.save()
+        return self.user
 
 class TOTPForm(forms.Form):
     """Форма для управления 2FA"""

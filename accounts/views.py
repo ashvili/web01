@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.views.generic import TemplateView, FormView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.forms import PasswordChangeForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import update_session_auth_hash, login, authenticate, logout
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -18,7 +18,7 @@ from django.contrib.auth.hashers import make_password
 from django.core.paginator import Paginator
 import pyotp
 
-from .forms import UserProfileForm, UserForm, TOTPForm
+from .forms import UserProfileForm, UserForm, TOTPForm, PasswordChangeForm
 from .models import UserProfile
 
 # Импортируем API для логирования из utils напрямую
@@ -42,17 +42,67 @@ class HomeView(LoginRequiredMixin, TemplateView):
         # return super().get(request, *args, **kwargs)
 
 # Представление для профиля пользователя
-class ProfileView(LoginRequiredMixin, UpdateView):
+class ProfileView(LoginRequiredMixin, View):
     template_name = 'accounts/profile.html'
-    form_class = UserProfileForm
-    success_url = reverse_lazy('accounts:profile')
     
-    def get_object(self):
-        return self.request.user.profile
+    def get(self, request):
+        # Создаем initial данные для полей пользователя
+        initial_data = {
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'email': request.user.email,
+        }
+        
+        print(f"DEBUG: initial_data = {initial_data}")
+        
+        profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
+        password_form = PasswordChangeForm(user=request.user)
+        
+        context = {
+            'profile_form': profile_form,
+            'password_form': password_form,
+        }
+        return render(request, self.template_name, context)
     
-    def form_valid(self, form):
-        messages.success(self.request, 'Профиль успешно обновлен')
-        return super().form_valid(form)
+    def post(self, request):
+        # Создаем initial данные для полей пользователя
+        initial_data = {
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'email': request.user.email,
+        }
+        
+        if 'profile_submit' in request.POST:
+            profile_form = UserProfileForm(request.POST, instance=request.user.profile, user=request.user, initial=initial_data)
+            password_form = PasswordChangeForm(user=request.user)
+            
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, 'Профиль успешно обновлен')
+                return redirect('accounts:profile')
+            else:
+                # Если форма невалидна, показываем ошибки
+                messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
+        elif 'password_submit' in request.POST:
+            profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
+            password_form = PasswordChangeForm(request.POST, user=request.user)
+            
+            if password_form.is_valid():
+                password_form.save()
+                messages.success(request, 'Пароль успешно изменен')
+                return redirect('accounts:profile')
+            else:
+                # Если форма невалидна, показываем ошибки
+                messages.error(request, 'Пожалуйста, исправьте ошибки в форме пароля')
+        else:
+            profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
+            password_form = PasswordChangeForm(user=request.user)
+        
+        context = {
+            'profile_form': profile_form,
+            'password_form': password_form,
+        }
+        return render(request, self.template_name, context)
 
 # Представление для установки темы оформления
 @require_POST

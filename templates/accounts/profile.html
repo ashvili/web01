@@ -10,7 +10,6 @@
         <h2 class="mb-4">Профиль пользователя</h2>
         
         <div class="row">
-            {% if user.profile.user_type == 0 %}
             <div class="col-md-6">
                 <div class="profile-section">
                     <h4>Личные данные</h4>
@@ -19,53 +18,52 @@
                         <div class="mb-3">
                             <label for="{{ profile_form.first_name.id_for_label }}" class="form-label">{{ profile_form.first_name.label }}</label>
                             {{ profile_form.first_name|add_class:"form-control" }}
+                            {% if profile_form.first_name.errors %}
+                            <div class="text-danger">{{ profile_form.first_name.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ profile_form.last_name.id_for_label }}" class="form-label">{{ profile_form.last_name.label }}</label>
                             {{ profile_form.last_name|add_class:"form-control" }}
+                            {% if profile_form.last_name.errors %}
+                            <div class="text-danger">{{ profile_form.last_name.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ profile_form.email.id_for_label }}" class="form-label">{{ profile_form.email.label }}</label>
                             {{ profile_form.email|add_class:"form-control" }}
+                            {% if profile_form.email.errors %}
+                            <div class="text-danger">{{ profile_form.email.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ profile_form.department.id_for_label }}" class="form-label">{{ profile_form.department.label }}</label>
                             {{ profile_form.department|add_class:"form-control" }}
+                            {% if profile_form.department.errors %}
+                            <div class="text-danger">{{ profile_form.department.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ profile_form.position.id_for_label }}" class="form-label">{{ profile_form.position.label }}</label>
                             {{ profile_form.position|add_class:"form-control" }}
+                            {% if profile_form.position.errors %}
+                            <div class="text-danger">{{ profile_form.position.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ profile_form.phone_number.id_for_label }}" class="form-label">{{ profile_form.phone_number.label }}</label>
                             {{ profile_form.phone_number|add_class:"form-control" }}
+                            {% if profile_form.phone_number.errors %}
+                            <div class="text-danger">{{ profile_form.phone_number.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <button type="submit" name="profile_submit" class="btn btn-primary">Сохранить изменения</button>
                     </form>
                 </div>
             </div>
-            {% endif %}
             
             <div class="col-md-6">
-                {% if user.profile.user_type == 0 %}
                 <div class="profile-section">
-                    <h4>Настройки интерфейса</h4>
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="{{ profile_form.items_per_page.id_for_label }}" class="form-label">{{ profile_form.items_per_page.label }}</label>
-                            {{ profile_form.items_per_page|add_class:"form-control" }}
-                        </div>
-                        <div class="mb-3">
-                            <label for="{{ profile_form.theme.id_for_label }}" class="form-label">{{ profile_form.theme.label }}</label>
-                            {{ profile_form.theme|add_class:"form-control"|attr:"id:theme-select" }}
-                        </div>
-                        <button type="submit" name="profile_submit" class="btn btn-primary">Сохранить настройки</button>
-                    </form>
-                </div>
-                {% endif %}
-                
-                <div class="profile-section mt-4">
                     <h4>Безопасность</h4>
                     <form method="post">
                         {% csrf_token %}
@@ -117,6 +115,40 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .profile-section h4 {
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #555;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}
