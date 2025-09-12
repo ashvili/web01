@@ -46,7 +46,13 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 {% get_current_language as LANGUAGE_CODE %}
-                                {% if LANGUAGE_CODE == 'ru' %}🇷🇺 Русский{% elif LANGUAGE_CODE == 'tk' %}🇹🇲 Türkmen{% else %}🇷🇺 Русский{% endif %}
+                                {% if LANGUAGE_CODE == 'ru' %}
+                                    <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-1" style="width: 20px; height: 15px;">
+                                {% elif LANGUAGE_CODE == 'tk' %}
+                                    <img src="https://flagcdn.com/w20/tm.png" alt="TM" class="me-1" style="width: 20px; height: 15px;">
+                                {% else %}
+                                    <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-1" style="width: 20px; height: 15px;">
+                                {% endif %}
                             </a>
                             <ul class="dropdown-menu">
                                 <li>
@@ -54,7 +60,10 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="language" value="ru">
                                         <input type="hidden" name="next" value="{% switch_language_url 'ru' %}">
-                                        <button type="submit" class="dropdown-item">🇷🇺 Русский</button>
+                                        <button type="submit" class="dropdown-item d-flex align-items-center">
+                                            <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-2" style="width: 20px; height: 15px;">
+                                            <span>Русский</span>
+                                        </button>
                                     </form>
                                 </li>
                                 <li>
@@ -62,7 +71,10 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="language" value="tk">
                                         <input type="hidden" name="next" value="{% switch_language_url 'tk' %}">
-                                        <button type="submit" class="dropdown-item">🇹🇲 Türkmen</button>
+                                        <button type="submit" class="dropdown-item d-flex align-items-center">
+                                            <img src="https://flagcdn.com/w20/tm.png" alt="TM" class="me-2" style="width: 20px; height: 15px;">
+                                            <span>Türkmen</span>
+                                        </button>
                                     </form>
                                 </li>
                             </ul>
