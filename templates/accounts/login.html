@@ -1,25 +1,25 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Вход в систему{% endblock %}
+{% block title %}{% trans "Вход в систему" %}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-6 mx-auto">
         <div class="auth-form">
-            <h2 class="form-title">Вход в систему</h2>
+            <h2 class="form-title">{% trans "Вход в систему" %}</h2>
             
             <form method="post">
                 {% csrf_token %}
                 
                 {% if form.errors %}
                 <div class="alert alert-danger">
-                    <p>Неверное имя пользователя или пароль. Пожалуйста, попробуйте снова.</p>
+                    <p>{% trans "Неверное имя пользователя или пароль. Пожалуйста, попробуйте снова." %}</p>
                 </div>
                 {% endif %}
                 
                 <div class="mb-3">
-                    <label for="{{ form.username.id_for_label }}" class="form-label">Имя пользователя</label>
+                    <label for="{{ form.username.id_for_label }}" class="form-label">{% trans "Имя пользователя" %}</label>
                     {{ form.username }}
                     {% if form.username.errors %}
                     <div class="text-danger">{{ form.username.errors.0 }}</div>
@@ -27,14 +27,14 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label for="{{ form.password.id_for_label }}" class="form-label">Пароль</label>
+                    <label for="{{ form.password.id_for_label }}" class="form-label">{% trans "Пароль" %}</label>
                     {{ form.password }}
                     {% if form.password.errors %}
                     <div class="text-danger">{{ form.password.errors.0 }}</div>
                     {% endif %}
                 </div>
                 
-                <button type="submit" class="btn btn-primary">Войти</button>
+                <button type="submit" class="btn btn-primary">{% trans "Войти" %}</button>
                 
                 {% if next %}
                 <input type="hidden" name="next" value="{{ next }}">
@@ -42,7 +42,7 @@
             </form>
             
             <div class="auth-links mt-3">
-                <a href="{% url 'accounts:password_reset' %}">Забыли пароль?</a>
+                <a href="{% url 'accounts:password_reset' %}">{% trans "Забыли пароль?" %}</a>
             </div>
         </div>
     </div>
@@ -58,12 +58,12 @@
         
         if (usernameInput) {
             usernameInput.classList.add('form-control');
-            usernameInput.placeholder = 'Введите имя пользователя';
+            usernameInput.placeholder = '{% trans "Введите имя пользователя" %}';
         }
         
         if (passwordInput) {
             passwordInput.classList.add('form-control');
-            passwordInput.placeholder = 'Введите пароль';
+            passwordInput.placeholder = '{% trans "Введите пароль" %}';
         }
     });
 </script>

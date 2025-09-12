@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load log_tags %}
-{% load widget_tweaks %}
+{% load widget_tweaks i18n %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{% trans "Журнал действий пользователей" %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">{{ title }}</h1>
+        <h1 class="h3 mb-0">{% trans "Журнал действий пользователей" %}</h1>
         <a href="{% url 'logs:export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success">
-            <i class="fas fa-file-export me-1"></i> Экспорт CSV
+            <i class="fas fa-file-export me-1"></i> {% trans "Экспорт CSV" %}
         </a>
     </div>
     <div class="card mb-2 border-0 shadow-none">
         <div class="card-body p-2">
             <form method="get" action="{% url 'logs:list' %}">
                 <div class="input-group">
-                    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Поиск по пути, IP, UserAgent...">
-                    <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Найти</button>
+                    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="{% trans 'Поиск по пути, IP, UserAgent...' %}">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> {% trans "Найти" %}</button>
                     {% if request.GET.q %}
-                        <a href="{% url 'logs:list' %}" class="btn btn-outline-secondary">Сбросить</a>
+                        <a href="{% url 'logs:list' %}" class="btn btn-outline-secondary">{% trans "Сбросить" %}</a>
                     {% endif %}
                 </div>
             </form>
@@ -46,7 +46,7 @@
                         {{ form.ip_address|add_class:"form-control form-control-sm" }}
                     </div>
                     <div class="col-auto">
-                        <button class="btn btn-sm btn-outline-primary" type="submit">Применить</button>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">{% trans "Применить" %}</button>
                     </div>
                 </div>
             </form>
@@ -56,17 +56,17 @@
         <div class="col-lg-12">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">{{ title }}</h2>
+                    <h2 class="card-title">{% trans "Журнал действий пользователей" %}</h2>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
                         <a href="{% url 'logs:sessions' %}" class="btn btn-outline-primary me-2">
-                            <i class="fas fa-layer-group me-1"></i> Логические сессии
+                            <i class="fas fa-layer-group me-1"></i> {% trans "Логические сессии" %}
                         </a>
                         <a href="{% url 'logs:activity' %}" class="btn btn-outline-success me-2">
-                            <i class="fas fa-chart-bar me-1"></i> Активность
+                            <i class="fas fa-chart-bar me-1"></i> {% trans "Активность" %}
                         </a>
-                        <span class="text-muted ms-2">Для просмотра цепочки действий откройте детали лога и перейдите по ссылке "Цепочка"</span>
+                        <span class="text-muted ms-2">{% trans "Для просмотра цепочки действий откройте детали лога и перейдите по ссылке \"Цепочка\"" %}</span>
                     </div>
                     
                     {# Кнопка очистки устаревших логов (только для суперпользователя) #}
@@ -76,7 +76,7 @@
                             <form method="post" action="{% url 'logs:clear_old_logs' %}" onsubmit="return confirm('Удалить все логи старше {{ settings.USER_ACTION_LOG_RETENTION_DAYS|default:90 }} дней? Это действие необратимо!');">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-danger">
-                                    <i class="fas fa-trash-alt me-1"></i> Очистить устаревшие логи
+                                    <i class="fas fa-trash-alt me-1"></i> {% trans "Очистить устаревшие логи" %}
                                 </button>
                             </form>
                         </div>
@@ -88,13 +88,13 @@
                             <thead class="table-light sticky-top">
                                 <tr>
                                     <th>ID</th>
-                                    <th>Пользователь</th>
-                                    <th>Действие</th>
-                                    <th>Дата и время</th>
-                                    <th>IP адрес</th>
-                                    <th>Объект</th>
-                                    <th>Детали</th>
-                                    <th>Действия</th>
+                                    <th>{% trans "Пользователь" %}</th>
+                                    <th>{% trans "Действие" %}</th>
+                                    <th>{% trans "Дата и время" %}</th>
+                                    <th>{% trans "IP адрес" %}</th>
+                                    <th>{% trans "Объект" %}</th>
+                                    <th>{% trans "Детали" %}</th>
+                                    <th>{% trans "Действия" %}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -117,13 +117,13 @@
                                     </td>
                                     <td>
                                         <a href="{% url 'logs:detail' log.id %}" class="btn btn-sm btn-info">
-                                            <i class="fas fa-eye"></i> Детали
+                                            <i class="fas fa-eye"></i> {% trans "Детали" %}
                                         </a>
                                     </td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="8" class="text-center">Логи не найдены</td>
+                                    <td colspan="8" class="text-center">{% trans "Логи не найдены" %}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -131,16 +131,16 @@
                     </div>
                     
                     {% if logs.paginator.num_pages > 1 %}
-                    <nav aria-label="Навигация по страницам">
+                    <nav aria-label="{% trans 'Навигация по страницам' %}"
                         <ul class="pagination justify-content-center">
                             {% if logs.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page=1{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Первая">
+                                <a class="page-link" href="?page=1{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="{% trans 'Первая' %}"
                                     <span aria-hidden="true">&laquo;&laquo;</span>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ logs.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Предыдущая">
+                                <a class="page-link" href="?page={{ logs.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="{% trans 'Предыдущая' %}"
                                     <span aria-hidden="true">&laquo;</span>
                                 </a>
                             </li>
@@ -165,12 +165,12 @@
                             
                             {% if logs.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ logs.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Следующая">
+                                <a class="page-link" href="?page={{ logs.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="{% trans 'Следующая' %}"
                                     <span aria-hidden="true">&raquo;</span>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="Последняя">
+                                <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}" aria-label="{% trans 'Последняя' %}"
                                     <span aria-hidden="true">&raquo;&raquo;</span>
                                 </a>
                             </li>

@@ -1,20 +1,21 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.utils.translation import gettext_lazy as _
 from .models import UserProfile
 from .utils import clean_password
 
 class UserForm(forms.ModelForm):
     """Форма для редактирования пользователя"""
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False, label="Пароль")
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False, label=_("Пароль"))
     
     class Meta:
         model = User
         fields = ['username', 'password', 'first_name', 'last_name', 'email']
         labels = {
-            'username': 'Имя пользователя',
-            'first_name': 'Имя',
-            'last_name': 'Фамилия',
-            'email': 'Email'
+            'username': _('Имя пользователя'),
+            'first_name': _('Имя'),
+            'last_name': _('Фамилия'),
+            'email': _('Email')
         }
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
@@ -30,9 +31,9 @@ class UserForm(forms.ModelForm):
         # Если это создание нового пользователя, пароль обязателен
         if not self.instance or not self.instance.pk:
             self.fields['password'].required = True
-            self.fields['password'].help_text = "Пароль обязателен для нового пользователя"
+            self.fields['password'].help_text = _("Пароль обязателен для нового пользователя")
         else:
-            self.fields['password'].help_text = "Оставьте пустым, чтобы не менять пароль"
+            self.fields['password'].help_text = _("Оставьте пустым, чтобы не менять пароль")
     
     def clean_password(self):
         """
@@ -46,7 +47,7 @@ class UserForm(forms.ModelForm):
         
         # Если это создание нового пользователя и пароль пустой
         if (not self.instance or not self.instance.pk) and is_empty:
-            raise forms.ValidationError("Пароль обязателен для нового пользователя")
+            raise forms.ValidationError(_("Пароль обязателен для нового пользователя"))
         
         if is_empty:
             # Возвращаем пустую строку для пустого пароля
@@ -72,7 +73,7 @@ class UserForm(forms.ModelForm):
         # Если это создание нового пользователя, пароль обязателен
         if not self.instance or not self.instance.pk:
             if not password:
-                raise forms.ValidationError("Пароль обязателен для нового пользователя")
+                raise forms.ValidationError(_("Пароль обязателен для нового пользователя"))
             user.password = make_password(password)
         
         if commit:
@@ -88,16 +89,16 @@ class UserProfileForm(forms.ModelForm):
     # Добавляем поля пользователя
     first_name = forms.CharField(
         max_length=30,
-        label='Имя',
+        label=_('Имя'),
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     last_name = forms.CharField(
         max_length=30,
-        label='Фамилия',
+        label=_('Фамилия'),
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     email = forms.EmailField(
-        label='Email',
+        label=_('Email'),
         widget=forms.EmailInput(attrs={'class': 'form-control'})
     )
     
@@ -105,9 +106,9 @@ class UserProfileForm(forms.ModelForm):
         model = UserProfile
         fields = ['department', 'position', 'phone_number']
         labels = {
-            'department': 'Отдел',
-            'position': 'Должность',
-            'phone_number': 'Телефон'
+            'department': _('Отдел'),
+            'position': _('Должность'),
+            'phone_number': _('Телефон')
         }
         widgets = {
             'department': forms.TextInput(attrs={'class': 'form-control'}),
@@ -138,15 +139,15 @@ class PasswordChangeForm(forms.Form):
     """Форма для смены пароля"""
     old_password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        label="Текущий пароль"
+        label=_("Текущий пароль")
     )
     new_password1 = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        label="Новый пароль"
+        label=_("Новый пароль")
     )
     new_password2 = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        label="Подтверждение пароля"
+        label=_("Подтверждение пароля")
     )
     
     def __init__(self, user, *args, **kwargs):
@@ -156,14 +157,14 @@ class PasswordChangeForm(forms.Form):
     def clean_old_password(self):
         old_password = self.cleaned_data.get('old_password')
         if not self.user.check_password(old_password):
-            raise forms.ValidationError("Неверный текущий пароль")
+            raise forms.ValidationError(_("Неверный текущий пароль"))
         return old_password
     
     def clean_new_password2(self):
         password1 = self.cleaned_data.get('new_password1')
         password2 = self.cleaned_data.get('new_password2')
         if password1 and password2 and password1 != password2:
-            raise forms.ValidationError("Пароли не совпадают")
+            raise forms.ValidationError(_("Пароли не совпадают"))
         return password2
     
     def clean_new_password1(self):
@@ -181,12 +182,12 @@ class TOTPForm(forms.Form):
     """Форма для управления 2FA"""
     totp_enabled = forms.BooleanField(
         required=False, 
-        label="Включить двухфакторную аутентификацию",
+        label=_("Включить двухфакторную аутентификацию"),
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
     reset_totp = forms.BooleanField(
         required=False, 
-        label="Сбросить настройки 2FA",
+        label=_("Сбросить настройки 2FA"),
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
     

@@ -1,42 +1,43 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}Список абонентов{% endblock %}
+{% block title %}{% trans "Список абонентов" %}{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="/">Главная</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Абоненты</li>
+    <li class="breadcrumb-item"><a href="/">{% trans "Главная" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Абоненты" %}</li>
   </ol>
 </nav>
 <div class="row mb-3">
   <div class="col-md-8">
     <form method="get">
       <div class="input-group mb-2">
-        <input type="text" name="q" class="form-control" placeholder="Поиск по номеру, ФИО, адресу...">
-        <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Найти</button>
+        <input type="text" name="q" class="form-control" placeholder="{% trans 'Поиск по номеру, ФИО, адресу...' %}">
+        <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> {% trans "Найти" %}</button>
       </div>
-      <a href="?" class="btn btn-outline-secondary btn-sm">Сбросить</a>
+      <a href="?" class="btn btn-outline-secondary btn-sm">{% trans "Сбросить" %}</a>
     </form>
   </div>
   <div class="col-md-4 text-end">
-    <a href="#" class="btn btn-success"><i class="fas fa-plus"></i> Добавить абонента</a>
-    <a href="#" class="btn btn-outline-info ms-2"><i class="fas fa-file-import"></i> Импорт</a>
-    <a href="#" class="btn btn-outline-success ms-2"><i class="fas fa-file-export"></i> Экспорт</a>
+    <a href="#" class="btn btn-success"><i class="fas fa-plus"></i> {% trans "Добавить абонента" %}</a>
+    <a href="#" class="btn btn-outline-info ms-2"><i class="fas fa-file-import"></i> {% trans "Импорт" %}</a>
+    <a href="#" class="btn btn-outline-success ms-2"><i class="fas fa-file-export"></i> {% trans "Экспорт" %}</a>
   </div>
 </div>
 <div class="row mb-3">
   <div class="col-md-12">
     <div class="d-flex flex-wrap align-items-center gap-2">
-      <span class="fw-bold">Фильтры:</span>
+      <span class="fw-bold">{% trans "Фильтры" %}:</span>
       <select class="form-select form-select-sm w-auto" name="status">
-        <option value="">Все статусы</option>
-        <option value="active">Активен</option>
-        <option value="inactive">Неактивен</option>
+        <option value="">{% trans "Все статусы" %}</option>
+        <option value="active">{% trans "Активен" %}</option>
+        <option value="inactive">{% trans "Неактивен" %}</option>
       </select>
-      <input type="date" class="form-control form-control-sm w-auto" name="date_from" placeholder="Дата от">
-      <input type="date" class="form-control form-control-sm w-auto" name="date_to" placeholder="Дата до">
-      <button class="btn btn-sm btn-outline-secondary" type="submit">Применить</button>
+      <input type="date" class="form-control form-control-sm w-auto" name="date_from" placeholder="{% trans 'Дата от' %}">
+      <input type="date" class="form-control form-control-sm w-auto" name="date_to" placeholder="{% trans 'Дата до' %}">
+      <button class="btn btn-sm btn-outline-secondary" type="submit">{% trans "Применить" %}</button>
     </div>
   </div>
 </div>
@@ -44,22 +45,22 @@
   <table class="table table-striped table-hover align-middle">
     <thead class="table-light sticky-top">
       <tr>
-        <th>ID</th>
-        <th>ФИО</th>
-        <th>Номер</th>
-        <th>Адрес</th>
-        <th>Статус</th>
-        <th>Действия</th>
+        <th>{% trans "ID" %}</th>
+        <th>{% trans "ФИО" %}</th>
+        <th>{% trans "Номер" %}</th>
+        <th>{% trans "Адрес" %}</th>
+        <th>{% trans "Статус" %}</th>
+        <th>{% trans "Действия" %}</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td colspan="6" class="text-center text-muted">Нет данных для отображения (заглушка)</td>
+        <td colspan="6" class="text-center text-muted">{% trans "Нет данных для отображения (заглушка)" %}</td>
       </tr>
     </tbody>
   </table>
 </div>
-<nav aria-label="Навигация по страницам">
+<nav aria-label="{% trans 'Навигация по страницам' %}">
   <ul class="pagination justify-content-center">
     <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
     <li class="page-item active"><span class="page-link">1</span></li>

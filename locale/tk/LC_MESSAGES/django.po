@@ -1,0 +1,837 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-12 17:45+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: tk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Поиск и просмотр абонентов"
+msgstr "Abonentleri gözlemek we gözlemek"
+
+msgid "Абоненты"
+msgstr "Abonentler"
+
+msgid "Импорт данных"
+msgstr "Maglumatlary import etmek"
+
+msgid "Пользователи"
+msgstr "Ulanyjylar"
+
+msgid "Логи действий"
+msgstr "Hereketleriň loglary"
+
+msgid "Профиль"
+msgstr "Profil"
+
+msgid "Выход"
+msgstr "Çykmak"
+
+msgid "Войти"
+msgstr "Girmek"
+
+msgid "Регистрация"
+msgstr "Registrasiýa"
+
+msgid "Главная"
+msgstr "Baş sahypa"
+
+msgid "Список абонентов"
+msgstr "Abonentleriň sanawy"
+
+msgid "Добавить абонента"
+msgstr "Abonent goşmak"
+
+msgid "Импорт"
+msgstr "Import"
+
+msgid "Экспорт"
+msgstr "Eksport"
+
+msgid "Фильтры"
+msgstr "Filterler"
+
+msgid "Поиск по номеру, ФИО, адресу..."
+msgstr "Belgi, A.A.A., salgy boýunça gözleg..."
+
+msgid "Все статусы"
+msgstr "Hemme statuslar"
+
+msgid "Активен"
+msgstr "Işjeň"
+
+msgid "Неактивен"
+msgstr "Işjeň däl"
+
+msgid "Применить"
+msgstr "Ulgamak"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "Статус"
+msgstr "Status"
+
+msgid "Действия"
+msgstr "Hereketler"
+
+msgid "Поиск абонентов"
+msgstr "Abonentleri gözlemek"
+
+msgid "Форма поиска"
+msgstr "Gözleg formasy"
+
+msgid "Номер телефона"
+msgstr "Telefon belgisi"
+
+msgid "Введите номер телефона"
+msgstr "Telefon belgisini giriziň"
+
+msgid "Номер паспорта"
+msgstr "Pasport belgisi"
+
+msgid "Введите номер паспорта"
+msgstr "Pasport belgisini giriziň"
+
+msgid "Номер паспорта хранится в поле Memo1"
+msgstr "Pasport belgisi Memo1 meýdanynda saklanýar"
+
+msgid "ФИО"
+msgstr "A.A.A."
+
+msgid "Введите имя, фамилию или отчество"
+msgstr "Ady, familiýa ýa-da atasynyň adyny giriziň"
+
+msgid "Адрес"
+msgstr "Salgy"
+
+msgid "Введите адрес"
+msgstr "Salgy giriziň"
+
+msgid "Найти"
+msgstr "Tapmak"
+
+msgid "Очистить"
+msgstr "Arassalamak"
+
+msgid "Введите критерии поиска для начала поиска абонентов."
+msgstr "Abonentleri gözlemek üçin gözleg şertlerini giriziň."
+
+msgid "© 2025 Поиск и просмотр абонентов. Все права защищены."
+msgstr "© 2025 Abonentleri gözlemek we gözlemek. Hemme hukuklar goragly."
+
+msgid "Найденные абоненты"
+msgstr "Tapylan abonentler"
+
+msgid "Паспортные данные"
+msgstr "Pasport maglumatlary"
+
+msgid "Дата рождения"
+msgstr "Doglan senesi"
+
+msgid "Номер"
+msgstr "Belgi"
+
+msgid "Фамилия"
+msgstr "Familiýa"
+
+msgid "Имя"
+msgstr "Ady"
+
+msgid "Отчество"
+msgstr "Atasynyň ady"
+
+msgid "Подробнее"
+msgstr "Giňişleýin"
+
+msgid "Импорт из CSV"
+msgstr "CSV-den import"
+
+msgid "Поиск по номеру, ФИО, адресу, IMSI..."
+msgstr "Belgi, A.A.A., salgy, IMSI boýunça gözleg..."
+
+msgid "Сбросить"
+msgstr "Sıfırlamak"
+
+msgid "Импортировать"
+msgstr "Import etmek"
+
+msgid "Загрузка файла..."
+msgstr "Faýl ýüklenýär..."
+
+msgid "Файл загружен! Импорт запущен..."
+msgstr "Faýl ýüklenildi! Import başlandy..."
+
+msgid "Прогресс импорта"
+msgstr "Import progressi"
+
+msgid "Новый импорт"
+msgstr "Täze import"
+
+msgid "Статус"
+msgstr "Status"
+
+msgid "Ожидает"
+msgstr "Garaşýar"
+
+msgid "Создано"
+msgstr "Döredildi"
+
+msgid "Ошибок"
+msgstr "Ýalňyşlyklar"
+
+msgid "Обработано записей:"
+msgstr "Işlenen ýazgylar:"
+
+msgid "Пауза"
+msgstr "Pauza"
+
+msgid "Возобновить"
+msgstr "Dewam etdirmek"
+
+msgid "Отмена"
+msgstr "Ýatyrmak"
+
+msgid "Финализировать импорт"
+msgstr "Importy tamamlamak"
+
+msgid "Инициализация"
+msgstr "Başlatma"
+
+msgid "Создание временной таблицы"
+msgstr "Wagtlaýyn tablisany döretmek"
+
+msgid "Импорт записей"
+msgstr "Ýazgylary import etmek"
+
+msgid "Ожидание финализации"
+msgstr "Tamamlamany garaşmak"
+
+msgid "Финализация"
+msgstr "Tamamlama"
+
+msgid "Завершение"
+msgstr "Tamamlama"
+
+msgid "Финализация импорта"
+msgstr "Importy tamamlamak"
+
+msgid "Завершение импорта"
+msgstr "Importy gutarmak"
+
+msgid "Показать ошибки"
+msgstr "Ýalňyşlyklary görkezmek"
+
+msgid "Список пользователей"
+msgstr "Ulanyjylaryň sanawy"
+
+msgid "Пользователи"
+msgstr "Ulanyjylar"
+
+msgid "Добавить пользователя"
+msgstr "Ulanyjy goşmak"
+
+msgid "Поиск по имени пользователя, email..."
+msgstr "Ulanyjy ady, email boýunça gözleg..."
+
+msgid "Найти"
+msgstr "Tapmak"
+
+msgid "Сбросить"
+msgstr "Sıfırlamak"
+
+msgid "Имя пользователя"
+msgstr "Ulanyjy ady"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Имя"
+msgstr "Ady"
+
+msgid "Фамилия"
+msgstr "Familiýa"
+
+msgid "Роль"
+msgstr "Rol"
+
+msgid "Дата регистрации"
+msgstr "Registrasiýa senesi"
+
+msgid "Действия"
+msgstr "Hereketler"
+
+msgid "Редактировать"
+msgstr "Redaktirlemek"
+
+msgid "Удалить"
+msgstr "Pozmak"
+
+msgid "Нет пользователей"
+msgstr "Ulanyjylar ýok"
+
+msgid "Навигация по пользователям"
+msgstr "Ulanyjylar boýunça navigasiýa"
+
+msgid "Администратор"
+msgstr "Administrator"
+
+msgid "Пользователь 1 уровня"
+msgstr "1-nji derejeli ulanyjy"
+
+msgid "Пользователь 2 уровня"
+msgstr "2-nji derejeli ulanyjy"
+
+msgid "Пользователь 3 уровня"
+msgstr "3-nji derejeli ulanyjy"
+
+msgid "Поиск и просмотр абонентов. Все права защищены."
+msgstr "Abonentleri gözlemek we gözlemek. Ähli hukuklar goragly."
+
+msgid "Абонент"
+msgstr "Abonent"
+
+msgid "Информация об абоненте"
+msgstr "Abonent barada maglumat"
+
+msgid "Вернуться к поиску"
+msgstr "Gözlege dolanmak"
+
+msgid "Основная информация"
+msgstr "Esasy maglumat"
+
+msgid "ID:"
+msgstr "ID:"
+
+msgid "Номер:"
+msgstr "Belgi:"
+
+msgid "Фамилия:"
+msgstr "Familiýa:"
+
+msgid "Имя:"
+msgstr "Ady:"
+
+msgid "Отчество:"
+msgstr "Atasynyň ady:"
+
+msgid "Дата рождения:"
+msgstr "Doglan senesi:"
+
+msgid "Место рождения:"
+msgstr "Doglan ýeri:"
+
+msgid "Дополнительная информация"
+msgstr "Goşmaça maglumat"
+
+msgid "IMSI:"
+msgstr "IMSI:"
+
+msgid "Адрес:"
+msgstr "Salgy:"
+
+msgid "Memo1:"
+msgstr "Memo1:"
+
+msgid "Memo2:"
+msgstr "Memo2:"
+
+msgid "Дата создания:"
+msgstr "Döredilen senesi:"
+
+msgid "Дата обновления:"
+msgstr "Täzelenen senesi:"
+
+msgid "Информация об импорте"
+msgstr "Import barada maglumat"
+
+msgid "Импортировано из файла:"
+msgstr "Faýldan import edildi:"
+
+msgid "Дата импорта:"
+msgstr "Import senesi:"
+
+msgid "Пользователь:"
+msgstr "Ulanyjy:"
+
+msgid "Закрыть"
+msgstr "Ýapmak"
+
+msgid "Редактирование пользователя"
+msgstr "Ulanyjyny redaktirlemek"
+
+msgid "Создание нового пользователя"
+msgstr "Täze ulanyjy döretmek"
+
+msgid "Основная информация"
+msgstr "Esasy maglumat"
+
+msgid "Профиль и разрешения"
+msgstr "Profil we rugsatlar"
+
+msgid "Оставьте поле пустым, если не хотите менять пароль"
+msgstr "Paroly üýtgetmek islemeýän bolsaňyz, meýdany boş goýuň"
+
+msgid "Разрешения"
+msgstr "Rugsatlar"
+
+msgid "Двухфакторная аутентификация (2FA)"
+msgstr "Iki-faktorly ygtybarlyk (2FA)"
+
+msgid "2FA активирована для данного пользователя"
+msgstr "Bu ulanyjy üçin 2FA işjeňleşdirildi"
+
+msgid "Отмена"
+msgstr "Ýatyrmak"
+
+msgid "Сохранить изменения"
+msgstr "Üýtgeşmeleri saklamak"
+
+msgid "Создать пользователя"
+msgstr "Ulanyjy döretmek"
+
+msgid "Пароль"
+msgstr "Parol"
+
+msgid "Отдел"
+msgstr "Bölüm"
+
+msgid "Должность"
+msgstr "Wezipesi"
+
+msgid "Телефон"
+msgstr "Telefon"
+
+msgid "Включить двухфакторную аутентификацию"
+msgstr "Iki-faktorly ygtybarlygy işjeňleşdirmek"
+
+msgid "Сбросить настройки 2FA"
+msgstr "2FA sazlamalaryny sıfyrlamak"
+
+msgid "Журнал действий пользователей"
+msgstr "Ulanyjylaryň hereketleriniň gündeligi"
+
+msgid "Экспорт CSV"
+msgstr "CSV eksport"
+
+msgid "Поиск по пути, IP, UserAgent..."
+msgstr "Ýol, IP, UserAgent boýunça gözlemek..."
+
+msgid "Найти"
+msgstr "Tapmak"
+
+msgid "Сбросить"
+msgstr "Sıfyrlamak"
+
+msgid "Применить"
+msgstr "Ulgamak"
+
+msgid "Логические сессии"
+msgstr "Mantykly seýssiýalar"
+
+msgid "Активность"
+msgstr "Işjeňlik"
+
+msgid "Для просмотра цепочки действий откройте детали лога и перейдите по ссылке \"Цепочка\""
+msgstr "Hereketler zynjyryny görmek üçin log jikme-jiklerini açyň we \"Zynjyr\" baglanyşygyna geçiň"
+
+msgid "Очистить устаревшие логи"
+msgstr "Köne loglary arassalamak"
+
+msgid "Пользователь"
+msgstr "Ulanyjy"
+
+msgid "Действие"
+msgstr "Hereket"
+
+msgid "Дата и время"
+msgstr "Sene we wagt"
+
+msgid "IP адрес"
+msgstr "IP salgy"
+
+msgid "Объект"
+msgstr "Obýekt"
+
+msgid "Детали"
+msgstr "Jikme-jikler"
+
+msgid "Действия"
+msgstr "Hereketler"
+
+msgid "Логи не найдены"
+msgstr "Loglar tapylmady"
+
+msgid "Навигация по страницам"
+msgstr "Sahypalar boýunça navigasiýa"
+
+msgid "Первая"
+msgstr "Birinji"
+
+msgid "Предыдущая"
+msgstr "Öňki"
+
+msgid "Следующая"
+msgstr "Indiki"
+
+msgid "Последняя"
+msgstr "Soňky"
+
+msgid "Введите IP адрес"
+msgstr "IP salgyny giriziň"
+
+msgid "Выберите пользователя"
+msgstr "Ulanyjy saýlaň"
+
+msgid "Тип действия"
+msgstr "Hereket görnüşi"
+
+msgid "Выберите тип действия"
+msgstr "Hereket görnüşini saýlaň"
+
+msgid "Дата от"
+msgstr "Seneden"
+
+msgid "Дата до"
+msgstr "Senä çenli"
+
+msgid "Логическая сессия (UUID)"
+msgstr "Mantykly seýssiýa (UUID)"
+
+msgid "Введите UUID логической сессии"
+msgstr "Mantykly seýssiýanyň UUID-sini giriziň"
+
+msgid "Вход в систему"
+msgstr "Sistema girmek"
+
+msgid "Выход из системы"
+msgstr "Sistemadan çykmak"
+
+msgid "Создание объекта"
+msgstr "Obýekt döretmek"
+
+msgid "Изменение объекта"
+msgstr "Obýekti üýtgetmek"
+
+msgid "Удаление объекта"
+msgstr "Obýekti pozmak"
+
+msgid "Импорт данных"
+msgstr "Maglumatlary import etmek"
+
+msgid "Поиск"
+msgstr "Gözlemek"
+
+msgid "Экспорт данных"
+msgstr "Maglumatlary eksport etmek"
+
+msgid "Другое"
+msgstr "Başga"
+
+msgid "Лог"
+msgstr "Log"
+
+msgid "Цепочка"
+msgstr "Zynjyr"
+
+msgid "Вернуться к списку"
+msgstr "Sanawa dolanmak"
+
+msgid "Основная информация"
+msgstr "Esasy maglumat"
+
+msgid "Тип действия"
+msgstr "Hereket görnüşi"
+
+msgid "Нет имени"
+msgstr "Ady ýok"
+
+msgid "Дата и время"
+msgstr "Sene we wagt"
+
+msgid "IP адрес"
+msgstr "IP salgy"
+
+msgid "Не указан"
+msgstr "Görkezilmedi"
+
+msgid "Техническая информация"
+msgstr "Tehniki maglumat"
+
+msgid "Путь запроса"
+msgstr "Sorag ýoly"
+
+msgid "HTTP метод"
+msgstr "HTTP usuly"
+
+msgid "HTTP код ответа"
+msgstr "HTTP jogap kody"
+
+msgid "Время выполнения"
+msgstr "Ýerine ýetirilen wagt"
+
+msgid "мс"
+msgstr "ms"
+
+msgid "User Agent"
+msgstr "Ulanyjy Agent"
+
+msgid "Информация об объекте"
+msgstr "Obýekt barada maglumat"
+
+msgid "Тип объекта"
+msgstr "Obýekt görnüşi"
+
+msgid "ID объекта"
+msgstr "Obýektiň ID-si"
+
+msgid "Действие не связано с конкретным объектом"
+msgstr "Hereket belli bir obýekt bilen baglanyşykly däl"
+
+msgid "Дополнительные данные"
+msgstr "Goşmaça maglumatlar"
+
+msgid "Данные не в формате JSON:"
+msgstr "Maglumatlar JSON formatynda däl:"
+
+msgid "Ошибка при обработке дополнительных данных:"
+msgstr "Goşmaça maglumatlary işlemekde ýalňyşlyk:"
+
+msgid "Нет дополнительных данных"
+msgstr "Goşmaça maglumatlar ýok"
+
+msgid "Логические сессии пользователей"
+msgstr "Ulanyjylaryň mantykly seýssiýalary"
+
+msgid "Фильтровать"
+msgstr "Süzgüç"
+
+msgid "Сессия:"
+msgstr "Seýssiýa:"
+
+msgid "Пользователь:"
+msgstr "Ulanyjy:"
+
+msgid "Начало:"
+msgstr "Başlangyç:"
+
+msgid "Конец:"
+msgstr "Ahyrky:"
+
+msgid "Длительность:"
+msgstr "Dowamlylygy:"
+
+msgid "Действий:"
+msgstr "Hereketler:"
+
+msgid "Показать действия"
+msgstr "Hereketleri görkezmek"
+
+msgid "Детали"
+msgstr "Jikme-jikler"
+
+msgid "Назад"
+msgstr "Yza"
+
+msgid "Вперёд"
+msgstr "Öňe"
+
+msgid "Нет сессий по заданным фильтрам."
+msgstr "Görkezilen süzgüçlere görä seýssiýalar ýok."
+
+msgid "дд.мм.гггг"
+msgstr "gg.aa.ýýýý"
+
+msgid "Активность пользователей по дням"
+msgstr "Ulanyjylaryň günlere görä işjeňligi"
+
+msgid "К сессиям"
+msgstr "Seýssiýalara"
+
+msgid "Количество действий"
+msgstr "Hereketleriň sany"
+
+msgid "Детали ошибок импорта:"
+msgstr "Import ýalňyşlyklarynyň jikme-jikleri:"
+
+msgid "Строка"
+msgstr "Setir"
+
+msgid "Ошибка"
+msgstr "Ýalňyşlyk"
+
+msgid "Исходные данные"
+msgstr "Başlangyç maglumatlar"
+
+msgid "Информация о формате CSV"
+msgstr "CSV formaty barada maglumat"
+
+msgid "Требования к файлу:"
+msgstr "Faýla talap edilýän zatlar:"
+
+msgid "Файл должен быть в формате CSV"
+msgstr "Faýl CSV formatynda bolmaly"
+
+msgid "Структура должна соответствовать модели абонентов"
+msgstr "Gurluşy abonent modeline gabat gelmeli"
+
+msgid "Каждая запись начинается с числового ID"
+msgstr "Her ýazgy sanly ID bilen başlanýar"
+
+msgid "Отметьте «первая строка заголовок», если это так"
+msgstr "Eger şeýle bolsa, «birkinji setir sarlawha» diýip belgileň"
+
+msgid "Порядок полей:"
+msgstr "Meýdanlaryň tertibi:"
+
+msgid "Место рождения"
+msgstr "Doglan ýeri"
+
+msgid "Загрузка..."
+msgstr "Ýüklenýär..."
+
+msgid "Ошибка:"
+msgstr "Ýalňyşlyk:"
+
+msgid "Ошибка при обработке ответа сервера"
+msgstr "Serwer jogaby işlenende ýalňyşlyk"
+
+msgid "Ошибка сервера:"
+msgstr "Serwer ýalňyşlygy:"
+
+msgid "Ошибка сети при загрузке файла"
+msgstr "Faýl ýüklenende tor ýalňyşlygy"
+
+msgid "Завершено"
+msgstr "Tamamlandy"
+
+msgid "Ожидает финализации"
+msgstr "Tamamlamany garaşýar"
+
+msgid "В обработке"
+msgstr "Işlenýär"
+
+msgid "На паузе"
+msgstr "Pauzada"
+
+msgid "Отменено"
+msgstr "Ýatyryldy"
+
+msgid "Ошибка"
+msgstr "Ýalňyşlyk"
+
+msgid "Загрузка файла"
+msgstr "Faýl ýüklemek"
+
+msgid "Выполняется"
+msgstr "Ýerine ýetirilýär"
+
+msgid "Остановить импорт? Действие нельзя отменить."
+msgstr "Importy duruzmak? Bu hereketi yzyna gaýtarmak bolmaýar."
+
+msgid "Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить."
+msgstr "Importy tamamlamak? Wagtlaýyn tablisadaky maglumatlar esasy tablisaga geçiriler. Bu hereketi yzyna gaýtarmak bolmaýar."
+
+msgid "Финализация..."
+msgstr "Tamamlanýar..."
+
+msgid "Импорт успешно финализирован!"
+msgstr "Import üstünlikli tamamlandy!"
+
+msgid "Ошибка при финализации:"
+msgstr "Tamamlananda ýalňyşlyk:"
+
+msgid "Произошла ошибка при финализации импорта"
+msgstr "Import tamamlananda ýalňyşlyk ýüze çykdy"
+
+msgid "Показано первых 10 ошибок из"
+msgstr "Ilkinji 10 ýalňyşlyk görkezildi"
+
+msgid "Показано"
+msgstr "Görkezildi"
+
+msgid "ошибок."
+msgstr "ýalňyşlyk."
+
+msgid "Данные не сохранены"
+msgstr "Maglumatlar saklanmady"
+
+msgid "Импорт абонентов"
+msgstr "Abonentleri import etmek"
+
+msgid "Импорт абонентов из CSV"
+msgstr "CSV-den abonentleri import etmek"
+
+msgid "Загрузка файла CSV"
+msgstr "CSV faýly ýüklemek"
+
+msgid "К списку"
+msgstr "Sanawa"
+
+msgid "История импорта"
+msgstr "Import taryhy"
+
+msgid "CSV-файл"
+msgstr "CSV-faýl"
+
+msgid "Выберите файл"
+msgstr "Faýl saýlaň"
+
+msgid "Файл не выбран"
+msgstr "Faýl saýlanmady"
+
+msgid "Выберите CSV-файл с данными абонентов"
+msgstr "Abonent maglumatlary bilen CSV-faýl saýlaň"
+
+msgid "Разделитель полей"
+msgstr "Meýdanlaryň bölüji"
+
+msgid "Запятая (,)"
+msgstr "Otur (,)"
+
+msgid "Выберите символ, которым разделены поля в CSV-файле"
+msgstr "CSV-faýlda meýdanlaryň bölülen simwoly saýlaň"
+
+msgid "Первая строка содержит заголовки"
+msgstr "Birkinji setir sarlawhalary öz içine alýar"
+
+msgid "Отметьте, если первая строка файла содержит названия колонок"
+msgstr "Eger faýlyň birkinji setiri sütünleriň atlaryny öz içine alsa, belgileň"
+
+msgid "Кодировка файла"
+msgstr "Faýlyň kodlamasy"
+
+msgid "Выберите кодировку файла"
+msgstr "Faýlyň kodlamasyny saýlaň"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Отменено"
+msgstr "Ýatyryldy"
+
+msgid "Выполняется"
+msgstr "Ýerine ýetirilýär"
+
+msgid "Ожидает"
+msgstr "Garaşýar"
+
+msgid "Показано первых 10 ошибок из"
+msgstr "Ilkinji 10 ýalňyşlyk görkezildi"
+
+msgid "Показано"
+msgstr "Görkezildi"
+
+msgid "ошибок."
+msgstr "ýalňyşlyk."

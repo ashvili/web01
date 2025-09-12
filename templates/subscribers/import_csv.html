@@ -1,18 +1,18 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Импорт абонентов из CSV{% endblock %}
+{% block title %}{% trans "Импорт абонентов из CSV" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">Импорт абонентов</h1>
+        <h1 class="h3 mb-0">{% trans "Импорт абонентов" %}</h1>
         <div class="d-flex gap-2">
             <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> К списку
+                <i class="bi bi-arrow-left"></i> {% trans "К списку" %}
             </a>
             <a href="{% url 'subscribers:import_history' %}" class="btn btn-outline-primary">
-                <i class="bi bi-clock-history"></i> История импорта
+                <i class="bi bi-clock-history"></i> {% trans "История импорта" %}
             </a>
         </div>
     </div>
@@ -21,31 +21,35 @@
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h5 class="fw-semibold mb-3">Загрузка файла CSV</h5>
+                    <h5 class="fw-semibold mb-3">{% trans "Загрузка файла CSV" %}</h5>
                     <form id="import-form" method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
                         
                         <div class="mb-3">
-                            <label for="{{ form.csv_file.id_for_label }}" class="form-label">{{ form.csv_file.label }}</label>
-                            {{ form.csv_file }}
-                            <div class="form-text">{{ form.csv_file.help_text }}</div>
+                            <label for="{{ form.csv_file.id_for_label }}" class="form-label">{% trans "CSV-файл" %}</label>
+                            <div class="input-group">
+                                <input type="file" name="csv_file" id="{{ form.csv_file.id_for_label }}" class="d-none" accept=".csv" required>
+                                <button type="button" id="csv-file-chooser" class="btn btn-outline-secondary">{% trans "Выберите файл" %}</button>
+                                <span id="csv-file-name" class="form-control bg-light text-muted">{% trans "Файл не выбран" %}</span>
+                            </div>
+                            <div class="form-text">{% trans "Выберите CSV-файл с данными абонентов" %}</div>
                             {% if form.csv_file.errors %}
                                 <div class="invalid-feedback d-block">{% for error in form.csv_file.errors %}{{ error }}{% endfor %}</div>
                             {% endif %}
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="{{ form.delimiter.id_for_label }}" class="form-label">{{ form.delimiter.label }}</label>
+                                <label for="{{ form.delimiter.id_for_label }}" class="form-label">{% trans "Разделитель полей" %}</label>
                                 {{ form.delimiter }}
-                                <div class="form-text">{{ form.delimiter.help_text }}</div>
+                                <div class="form-text">{% trans "Выберите символ, которым разделены поля в CSV-файле" %}</div>
                                 {% if form.delimiter.errors %}
                                     <div class="invalid-feedback d-block">{% for error in form.delimiter.errors %}{{ error }}{% endfor %}</div>
                                 {% endif %}
                             </div>
                             <div class="col-md-6">
-                                <label for="{{ form.encoding.id_for_label }}" class="form-label">{{ form.encoding.label }}</label>
+                                <label for="{{ form.encoding.id_for_label }}" class="form-label">{% trans "Кодировка файла" %}</label>
                                 {{ form.encoding }}
-                                <div class="form-text">{{ form.encoding.help_text }}</div>
+                                <div class="form-text">{% trans "Выберите кодировку файла" %}</div>
                                 {% if form.encoding.errors %}
                                     <div class="invalid-feedback d-block">{% for error in form.encoding.errors %}{{ error }}{% endfor %}</div>
                                 {% endif %}
@@ -53,12 +57,12 @@
                         </div>
                         <div class="form-check my-3">
                             {{ form.has_header }}
-                            <label class="form-check-label" for="{{ form.has_header.id_for_label }}">{{ form.has_header.label }}</label>
-                            <div class="form-text">{{ form.has_header.help_text }}</div>
+                            <label class="form-check-label" for="{{ form.has_header.id_for_label }}">{% trans "Первая строка содержит заголовки" %}</label>
+                            <div class="form-text">{% trans "Отметьте, если первая строка файла содержит названия колонок" %}</div>
                         </div>
                         <div class="text-end">
                             <button type="submit" id="import-btn" class="btn btn-primary">
-                                <i class="bi bi-file-earmark-arrow-up"></i> Импортировать
+                                <i class="bi bi-file-earmark-arrow-up"></i> {% trans "Импортировать" %}
                             </button>
                         </div>
                         
@@ -67,7 +71,7 @@
                             <div class="alert alert-info">
                                 <div class="d-flex align-items-center">
                                     <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                                    <span id="upload-status">Загрузка файла...</span>
+                                    <span id="upload-status">{% trans "Загрузка файла..." %}</span>
                                 </div>
                                 <div class="progress mt-2">
                                     <div id="upload-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
@@ -80,9 +84,9 @@
                     <div id="import-progress-card" class="mt-4" style="display:none;">
                         <div class="card">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0">Прогресс импорта</h5>
+                                <h5 class="card-title mb-0">{% trans "Прогресс импорта" %}</h5>
                                 <button id="new-import-btn" class="btn btn-sm btn-outline-primary" type="button" style="display: none;">
-                                    <i class="bi bi-plus-circle"></i> Новый импорт
+                                    <i class="bi bi-plus-circle"></i> {% trans "Новый импорт" %}
                                 </button>
                             </div>
                             <div class="card-body">
@@ -90,15 +94,15 @@
                                     <div class="col-6">
                                         <div class="card bg-light">
                                             <div class="card-body text-center">
-                                                <h6 class="card-title">Статус</h6>
-                                                <span id="status-badge" class="badge bg-secondary fs-6">Ожидает</span>
+                                                <h6 class="card-title">{% trans "Статус" %}</h6>
+                                                <span id="status-badge" class="badge bg-secondary fs-6">{% trans "Ожидает" %}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-6">
                                         <div class="card bg-light">
                                             <div class="card-body text-center">
-                                                <h6 class="card-title">Создано</h6>
+                                                <h6 class="card-title">{% trans "Создано" %}</h6>
                                                 <span id="created-count" class="fs-4 text-success">0</span>
                                             </div>
                                         </div>
@@ -106,7 +110,7 @@
                                     <div class="col-6">
                                         <div class="card bg-light">
                                             <div class="card-body text-center">
-                                                <h6 class="card-title">Ошибок</h6>
+                                                <h6 class="card-title">{% trans "Ошибок" %}</h6>
                                                 <span id="failed-count" class="fs-4 text-danger">0</span>
                                             </div>
                                         </div>
@@ -118,14 +122,14 @@
                                         <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                                     </div>
                                     <div class="d-flex justify-content-between small mt-1">
-                                        <span>Обработано записей: <span id="processed-count">0</span></span>
+                                        <span>{% trans "Обработано записей:" %} <span id="processed-count">0</span></span>
                                     </div>
                                     <div class="mt-2 d-flex gap-2">
-                                        <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">Пауза</button>
-                                        <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
-                                        <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">Отмена</button>
+                                        <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">{% trans "Пауза" %}</button>
+                                        <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">{% trans "Возобновить" %}</button>
+                                        <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">{% trans "Отмена" %}</button>
                                         <button id="finalize-button" class="btn btn-sm btn-success" type="button" style="display:none;">
-                                            <i class="bi bi-check-circle"></i> Финализировать импорт
+                                            <i class="bi bi-check-circle"></i> {% trans "Финализировать импорт" %}
                                         </button>
                                     </div>
                                 </div>
@@ -133,27 +137,27 @@
                                 <div class="mt-3">
                                     <ul class="list-group">
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Инициализация
+                                            {% trans "Инициализация" %}
                                             <span id="step-initializing" class="badge bg-secondary">...</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Создание временной таблицы
+                                            {% trans "Создание временной таблицы" %}
                                             <span id="step-creating_temp_table" class="badge bg-secondary">...</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Импорт записей
+                                            {% trans "Импорт записей" %}
                                             <span id="step-processing" class="badge bg-secondary">...</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Ожидание финализации
+                                            {% trans "Ожидание финализации" %}
                                             <span id="step-waiting_finalization" class="badge bg-secondary">...</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Финализация
+                                            {% trans "Финализация импорта" %}
                                             <span id="step-finalizing" class="badge bg-secondary">...</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            Завершение
+                                            {% trans "Завершение импорта" %}
                                             <span id="step-completed" class="badge bg-secondary">...</span>
                                         </li>
                                     </ul>
@@ -161,18 +165,18 @@
 
                                 <div id="errors-button-container" class="mt-3" style="display: none;">
                                     <button id="show-errors-btn" class="btn btn-outline-danger btn-sm" type="button">
-                                        <i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)
+                                        <i class="bi bi-exclamation-triangle"></i> {% trans "Показать ошибки" %} (<span id="errors-count">0</span>)
                                     </button>
                                 </div>
                                 <div id="errors-container" class="mt-3" style="display: none;">
-                                    <h6 class="text-danger">Детали ошибок импорта:</h6>
+                                    <h6 class="text-danger">{% trans "Детали ошибок импорта:" %}</h6>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-bordered">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th>Строка</th>
-                                                    <th>Ошибка</th>
-                                                    <th>Исходные данные</th>
+                                                    <th>{% trans "Строка" %}</th>
+                                                    <th>{% trans "Ошибка" %}</th>
+                                                    <th>{% trans "Исходные данные" %}</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="errors-table-body"></tbody>
@@ -189,26 +193,26 @@
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h5 class="fw-semibold mb-3">Информация о формате CSV</h5>
-                    <p class="mb-2">Требования к файлу:</p>
+                    <h5 class="fw-semibold mb-3">{% trans "Информация о формате CSV" %}</h5>
+                    <p class="mb-2">{% trans "Требования к файлу:" %}</p>
                     <ul class="list-group list-group-flush mb-3 small">
-                        <li class="list-group-item">Файл должен быть в формате CSV</li>
-                        <li class="list-group-item">Структура должна соответствовать модели абонентов</li>
-                        <li class="list-group-item">Каждая запись начинается с числового ID</li>
-                        <li class="list-group-item">Отметьте «первая строка заголовок», если это так</li>
+                        <li class="list-group-item">{% trans "Файл должен быть в формате CSV" %}</li>
+                        <li class="list-group-item">{% trans "Структура должна соответствовать модели абонентов" %}</li>
+                        <li class="list-group-item">{% trans "Каждая запись начинается с числового ID" %}</li>
+                        <li class="list-group-item">{% trans "Отметьте «первая строка заголовок», если это так" %}</li>
                     </ul>
-                    <p class="mb-2">Порядок полей:</p>
+                    <p class="mb-2">{% trans "Порядок полей:" %}</p>
                     <ol class="list-group list-group-numbered small">
                         <li class="list-group-item">ID</li>
-                        <li class="list-group-item">Номер</li>
-                        <li class="list-group-item">Фамилия</li>
-                        <li class="list-group-item">Имя</li>
-                        <li class="list-group-item">Отчество</li>
-                        <li class="list-group-item">Адрес</li>
+                        <li class="list-group-item">{% trans "Номер" %}</li>
+                        <li class="list-group-item">{% trans "Фамилия" %}</li>
+                        <li class="list-group-item">{% trans "Имя" %}</li>
+                        <li class="list-group-item">{% trans "Отчество" %}</li>
+                        <li class="list-group-item">{% trans "Адрес" %}</li>
                         <li class="list-group-item">Memo1</li>
                         <li class="list-group-item">Memo2</li>
-                        <li class="list-group-item">Место рождения</li>
-                        <li class="list-group-item">Дата рождения</li>
+                        <li class="list-group-item">{% trans "Место рождения" %}</li>
+                        <li class="list-group-item">{% trans "Дата рождения" %}</li>
                         <li class="list-group-item">IMSI</li>
                     </ol>
                 </div>
@@ -239,15 +243,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorsButtonContainer = document.getElementById('errors-button-container');
     const errorsCount = document.getElementById('errors-count');
     const newImportBtn = document.getElementById('new-import-btn');
+    const csvHiddenInput = document.getElementById('{{ form.csv_file.id_for_label }}');
+    const csvChooserBtn = document.getElementById('csv-file-chooser');
+    const csvFileName = document.getElementById('csv-file-name');
     let currentImportId = null;
     
+    // Кастомный выбор файла
+    csvChooserBtn?.addEventListener('click', function(){
+        csvHiddenInput?.click();
+    });
+    csvHiddenInput?.addEventListener('change', function(){
+        const file = csvHiddenInput.files && csvHiddenInput.files[0];
+        csvFileName.textContent = file ? file.name : `{% trans "Файл не выбран" %}`;
+    });
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
         // Показываем индикатор прогресса
         uploadProgress.style.display = 'block';
         importBtn.disabled = true;
-        importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Загрузка...';
+        importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ' + `{% trans "Загрузка..." %}`;
         
         // Создаем FormData для AJAX запроса
         const formData = new FormData(form);
@@ -262,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 uploadProgressBar.style.width = percentComplete + '%';
                 uploadProgressBar.setAttribute('aria-valuenow', percentComplete);
                 uploadProgressBar.textContent = Math.round(percentComplete) + '%';
-                uploadStatus.textContent = `Загрузка файла... ${Math.round(percentComplete)}%`;
+                uploadStatus.textContent = `{% trans "Загрузка файла..." %} ` + Math.round(percentComplete) + '%';
             }
         });
         
@@ -273,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const response = JSON.parse(xhr.responseText);
                     if (response.success) {
                         currentImportId = response.import_id;
-                        uploadStatus.textContent = 'Файл загружен! Импорт запущен...';
+                        uploadStatus.textContent = `{% trans "Файл загружен! Импорт запущен..." %}`;
                         uploadProgressBar.style.width = '100%';
                         uploadProgressBar.setAttribute('aria-valuenow', 100);
                         uploadProgressBar.textContent = '100%';
@@ -286,20 +302,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         uploadProgress.style.display = 'none';
                         importBtn.disabled = false;
-                        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
-                        alert('Ошибка: ' + response.error);
+                        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> ' + `{% trans "Импортировать" %}`;
+                        alert(`{% trans "Ошибка:" %} ` + response.error);
                     }
                 } catch (e) {
                     uploadProgress.style.display = 'none';
                     importBtn.disabled = false;
-                    importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
-                    alert('Ошибка при обработке ответа сервера');
+                    importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> ' + `{% trans "Импортировать" %}`;
+                    alert(`{% trans "Ошибка при обработке ответа сервера" %}`);
                 }
             } else {
                 uploadProgress.style.display = 'none';
                 importBtn.disabled = false;
-                importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
-                alert('Ошибка сервера: ' + xhr.status);
+                importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> ' + `{% trans "Импортировать" %}`;
+                alert(`{% trans "Ошибка сервера:" %} ` + xhr.status);
             }
         });
         
@@ -307,8 +323,8 @@ document.addEventListener('DOMContentLoaded', function() {
         xhr.addEventListener('error', function() {
             uploadProgress.style.display = 'none';
             importBtn.disabled = false;
-            importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
-            alert('Ошибка сети при загрузке файла');
+            importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> ' + `{% trans "Импортировать" %}`;
+            alert(`{% trans "Ошибка сети при загрузке файла" %}`);
         });
         
         // Отправляем запрос
@@ -377,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     el.textContent = 'OK';
                 } else {
                     el.className = 'badge bg-danger';
-                    el.textContent = 'Отменено';
+                    el.textContent = `{% trans "Отменено" %}`;
                 }
             });
             return;
@@ -401,13 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (idx === currentIdx) {
                 if (phase === 'waiting_finalization') {
                     el.className = 'badge bg-warning';
-                    el.textContent = 'Ожидает';
+                    el.textContent = `{% trans "Ожидает" %}`;
                 } else if (phase === 'completed') {
                     el.className = 'badge bg-success';
                     el.textContent = 'OK';
                 } else {
                     el.className = 'badge bg-info';
-                    el.textContent = 'Выполняется';
+                    el.textContent = `{% trans "Выполняется" %}`;
                 }
             } else {
                 el.className = 'badge bg-secondary';
@@ -421,28 +437,28 @@ document.addEventListener('DOMContentLoaded', function() {
         statusBadge.className = 'badge fs-6';
         if (status === 'completed') {
             statusBadge.classList.add('bg-success');
-            statusBadge.textContent = 'Завершено';
+            statusBadge.textContent = `{% trans "Завершено" %}`;
         } else if (status === 'temp_completed') {
             statusBadge.classList.add('bg-warning','text-dark');
-            statusBadge.textContent = 'Ожидает финализации';
+            statusBadge.textContent = `{% trans "Ожидает финализации" %}`;
         } else if (status === 'processing') {
             statusBadge.classList.add('bg-warning','text-dark');
-            statusBadge.textContent = 'В обработке';
+            statusBadge.textContent = `{% trans "В обработке" %}`;
         } else if (status === 'paused') {
             statusBadge.classList.add('bg-info');
-            statusBadge.textContent = 'На паузе';
+            statusBadge.textContent = `{% trans "На паузе" %}`;
         } else if (status === 'cancelled') {
             statusBadge.classList.add('bg-secondary');
-            statusBadge.textContent = 'Отменено';
+            statusBadge.textContent = `{% trans "Отменено" %}`;
         } else if (status === 'failed') {
             statusBadge.classList.add('bg-danger');
-            statusBadge.textContent = 'Ошибка';
+            statusBadge.textContent = `{% trans "Ошибка" %}`;
         } else if (status === 'uploading') {
             statusBadge.classList.add('bg-info');
-            statusBadge.textContent = 'Загрузка файла';
+            statusBadge.textContent = `{% trans "Загрузка файла" %}`;
         } else if (status === 'pending') {
             statusBadge.classList.add('bg-primary');
-            statusBadge.textContent = 'Ожидает';
+            statusBadge.textContent = `{% trans "Ожидает" %}`;
         } else {
             statusBadge.classList.add('bg-secondary');
             statusBadge.textContent = status;
@@ -513,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     cancelBtn?.addEventListener('click', function(){
         if (!currentImportId) return;
-        if (!confirm('Остановить импорт? Действие нельзя отменить.')) return;
+        if (!confirm(`{% trans "Остановить импорт? Действие нельзя отменить." %}`)) return;
         fetch('{% url "subscribers:import_cancel" 0 %}'.replace('0', currentImportId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
             .then(r => r.json())
             .then(() => poll())
@@ -523,23 +539,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!currentImportId) return;
         if (!confirm('Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить.')) return;
         finalizeBtn.disabled = true;
-        finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Финализация...';
+        finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + `{% trans "Финализация..." %}`;
         fetch('{% url "subscribers:import_finalize" 0 %}'.replace('0', currentImportId), {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }
         }).then(r => r.json()).then(data => {
             if (data.success) {
-                alert('Импорт успешно финализирован!');
+                alert(`{% trans "Импорт успешно финализирован!" %}`);
                 setTimeout(poll, 1000);
             } else {
-                alert('Ошибка при финализации: ' + data.error);
+                alert(`{% trans "Ошибка при финализации:" %} ` + data.error);
                 finalizeBtn.disabled = false;
-                finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+                finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> ' + `{% trans "Финализировать импорт" %}`;
             }
         }).catch(() => {
-            alert('Произошла ошибка при финализации импорта');
+            alert(`{% trans "Произошла ошибка при финализации импорта" %}`);
             finalizeBtn.disabled = false;
-            finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+            finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> ' + `{% trans "Финализировать импорт" %}`;
         });
     });
 
@@ -548,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadErrors();
         } else {
             errorsContainer.style.display = 'none';
-            this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)`;
+            this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> {% trans "Показать ошибки" %} (<span id="errors-count">0</span>)`;
         }
     });
 
@@ -564,7 +580,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Сбрасываем состояние кнопки импорта
         importBtn.disabled = false;
-        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> ' + `{% trans "Импортировать" %}`;
         
         // Сбрасываем переменные
         currentImportId = null;
@@ -578,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('created-count').textContent = '0';
         document.getElementById('failed-count').textContent = '0';
         statusBadge.className = 'badge bg-secondary fs-6';
-        statusBadge.textContent = 'Ожидает';
+        statusBadge.textContent = `{% trans "Ожидает" %}`;
         
         // Скрываем кнопки управления
         resumeBtn.style.display = 'none';

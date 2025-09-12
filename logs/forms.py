@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.utils.translation import gettext_lazy as _
 from .models import UserActionLog
 import datetime
 
@@ -8,27 +9,27 @@ class LogFilterForm(forms.Form):
     """Форма для фильтрации логов действий пользователей"""
     
     user = forms.ModelChoiceField(
-        label='Пользователь',
+        label=_('Пользователь'),
         queryset=User.objects.all().order_by('username'),
         required=False,
         widget=forms.Select(attrs={
             'class': 'form-control',
-            'placeholder': 'Выберите пользователя'
+            'placeholder': _('Выберите пользователя')
         })
     )
     
     action_type = forms.ChoiceField(
-        label='Тип действия',
-        choices=[('', '---')] + UserActionLog.ACTION_TYPES,
+        label=_('Тип действия'),
+        choices=[('', _('---'))] + UserActionLog.ACTION_TYPES,
         required=False,
         widget=forms.Select(attrs={
             'class': 'form-control',
-            'placeholder': 'Выберите тип действия'
+            'placeholder': _('Выберите тип действия')
         })
     )
     
     date_from = forms.DateField(
-        label='Дата от',
+        label=_('Дата от'),
         required=False,
         widget=forms.DateInput(attrs={
             'class': 'form-control',
@@ -37,7 +38,7 @@ class LogFilterForm(forms.Form):
     )
     
     date_to = forms.DateField(
-        label='Дата до',
+        label=_('Дата до'),
         required=False,
         widget=forms.DateInput(attrs={
             'class': 'form-control',
@@ -46,20 +47,20 @@ class LogFilterForm(forms.Form):
     )
     
     ip_address = forms.CharField(
-        label='IP адрес',
+        label=_('IP адрес'),
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Введите IP адрес'
+            'placeholder': _('Введите IP адрес')
         })
     )
     
     logical_session_id = forms.CharField(
-        label='Логическая сессия (UUID)',
+        label=_('Логическая сессия (UUID)'),
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Введите UUID логической сессии'
+            'placeholder': _('Введите UUID логической сессии')
         })
     )
     

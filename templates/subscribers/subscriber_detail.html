@@ -1,14 +1,15 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}Абонент {{ subscriber.last_name }} {{ subscriber.first_name }}{% endblock %}
+{% block title %}{% trans "Абонент" %} {{ subscriber.last_name }} {{ subscriber.first_name }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Информация об абоненте</h1>
+        <h1>{% trans "Информация об абоненте" %}</h1>
         <div>
             <a href="{% url 'subscribers:search' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Вернуться к поиску
+                <i class="fas fa-arrow-left me-2"></i>{% trans "Вернуться к поиску" %}
             </a>
         </div>
     </div>
@@ -16,37 +17,37 @@
     <!-- Основная информация -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">Основная информация</h5>
+            <h5 class="mb-0">{% trans "Основная информация" %}</h5>
         </div>
         <div class="card-body p-0">
             <table class="table table-bordered mb-0">
                 <tbody>
                     <tr>
-                        <th style="width: 200px">ID:</th>
+                        <th style="width: 200px">{% trans "ID:" %}</th>
                         <td>{{ subscriber.id }}</td>
                     </tr>
                     <tr>
-                        <th>Номер:</th>
+                        <th>{% trans "Номер:" %}</th>
                         <td>{{ subscriber.number }}</td>
                     </tr>
                     <tr>
-                        <th>Фамилия:</th>
+                        <th>{% trans "Фамилия:" %}</th>
                         <td>{{ subscriber.last_name }}</td>
                     </tr>
                     <tr>
-                        <th>Имя:</th>
+                        <th>{% trans "Имя:" %}</th>
                         <td>{{ subscriber.first_name }}</td>
                     </tr>
                     <tr>
-                        <th>Отчество:</th>
+                        <th>{% trans "Отчество:" %}</th>
                         <td>{{ subscriber.middle_name|default:"" }}</td>
                     </tr>
                     <tr>
-                        <th>Дата рождения:</th>
+                        <th>{% trans "Дата рождения:" %}</th>
                         <td>{{ subscriber.birth_date|date:"d.m.Y"|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <th>Место рождения:</th>
+                        <th>{% trans "Место рождения:" %}</th>
                         <td>{{ subscriber.birth_place|default:"NULL" }}</td>
                     </tr>
                 </tbody>
@@ -57,33 +58,33 @@
     <!-- Дополнительная информация -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">Дополнительная информация</h5>
+            <h5 class="mb-0">{% trans "Дополнительная информация" %}</h5>
         </div>
         <div class="card-body p-0">
             <table class="table table-bordered mb-0">
                 <tbody>
                     <tr>
-                        <th style="width: 200px">IMSI:</th>
+                        <th style="width: 200px">{% trans "IMSI:" %}</th>
                         <td>{{ subscriber.imsi }}</td>
                     </tr>
                     <tr>
-                        <th>Адрес:</th>
+                        <th>{% trans "Адрес:" %}</th>
                         <td>{{ subscriber.address|default:"" }}</td>
                     </tr>
                     <tr>
-                        <th>Memo1:</th>
+                        <th>{% trans "Memo1:" %}</th>
                         <td>{{ subscriber.memo1|default:"" }}</td>
                     </tr>
                     <tr>
-                        <th>Memo2:</th>
+                        <th>{% trans "Memo2:" %}</th>
                         <td>{{ subscriber.memo2|default:"" }}</td>
                     </tr>
                     <tr>
-                        <th>Дата создания:</th>
+                        <th>{% trans "Дата создания:" %}</th>
                         <td>{{ subscriber.created_at|date:"d.m.Y H:i" }}</td>
                     </tr>
                     <tr>
-                        <th>Дата обновления:</th>
+                        <th>{% trans "Дата обновления:" %}</th>
                         <td>{{ subscriber.updated_at|date:"d.m.Y H:i" }}</td>
                     </tr>
                 </tbody>
@@ -95,21 +96,21 @@
     {% if subscriber.import_history %}
     <div class="card">
         <div class="card-header">
-            <h5 class="mb-0">Информация об импорте</h5>
+            <h5 class="mb-0">{% trans "Информация об импорте" %}</h5>
         </div>
         <div class="card-body p-0">
             <table class="table table-bordered mb-0">
                 <tbody>
                     <tr>
-                        <th style="width: 200px">Импортировано из файла:</th>
+                        <th style="width: 200px">{% trans "Импортировано из файла:" %}</th>
                         <td>{{ subscriber.import_history.file_name }}</td>
                     </tr>
                     <tr>
-                        <th>Дата импорта:</th>
+                        <th>{% trans "Дата импорта:" %}</th>
                         <td>{{ subscriber.import_history.created_at|date:"d.m.Y H:i" }}</td>
                     </tr>
                     <tr>
-                        <th>Пользователь:</th>
+                        <th>{% trans "Пользователь:" %}</th>
                         <td>{{ subscriber.import_history.created_by.username }}</td>
                     </tr>
                 </tbody>

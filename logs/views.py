@@ -246,10 +246,11 @@ def log_sessions(request):
     paginator = Paginator(session_list, 10)
     page = request.GET.get('page')
     sessions_page = paginator.get_page(page)
+    from django.utils.translation import gettext as _
     context = {
         'form': form,
         'sessions': sessions_page,
-        'title': 'Логические сессии пользователей',
+        'title': _('Логические сессии пользователей'),
     }
     return render(request, 'logs/sessions.html', context)
 
@@ -301,10 +302,11 @@ def activity_overview(request):
     activity = logs.extra({'day': "date(action_time)"}).values('day').annotate(count=Count('id')).order_by('day')
     labels = [a['day'].strftime('%d.%m.%Y') if hasattr(a['day'], 'strftime') else str(a['day']) for a in activity]
     values = [a['count'] for a in activity]
+    from django.utils.translation import gettext as _
     context = {
         'form': form,
         'labels': labels,
         'values': values,
-        'title': 'Активность пользователей по дням',
+        'title': _('Активность пользователей по дням'),
     }
     return render(request, 'logs/activity.html', context)
