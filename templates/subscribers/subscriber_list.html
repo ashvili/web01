@@ -24,30 +24,6 @@
             </form>
         </div>
     </div>
-    <div class="card mb-4 border-0 shadow-none">
-        <div class="card-body p-2">
-            <form method="get" action="{% url 'subscribers:list' %}">
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto">
-                        <select class="form-select form-select-sm" name="status">
-                            <option value="">{% trans "Все статусы" %}</option>
-                            <option value="active">{% trans "Активен" %}</option>
-                            <option value="inactive">{% trans "Неактивен" %}</option>
-                        </select>
-                    </div>
-                    <div class="col-auto">
-                        <input type="date" class="form-control form-control-sm" name="date_from" placeholder="{% trans 'Дата от' %}">
-                    </div>
-                    <div class="col-auto">
-                        <input type="date" class="form-control form-control-sm" name="date_to" placeholder="{% trans 'Дата до' %}">
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-sm btn-outline-primary" type="submit">{% trans "Применить" %}</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
     
     {% if subscribers_page %}
         <div class="table-responsive">
