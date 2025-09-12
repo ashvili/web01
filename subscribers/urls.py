@@ -9,6 +9,7 @@ urlpatterns = [
     
     # Импорт данных из CSV
     path('import/', views.import_csv, name='import_csv'),
+    path('import/async/', views.import_csv_async, name='import_csv_async'),
     
     # История импорта
     path('import/history/', views.import_history, name='import_history'),

@@ -99,6 +99,8 @@
                                         <span class="badge bg-secondary fs-6">Отменено</span>
                                     {% elif import_history.status == 'failed' %}
                                         <span class="badge bg-danger fs-6">Ошибка</span>
+                                    {% elif import_history.status == 'uploading' %}
+                                        <span class="badge bg-info fs-6">Загрузка файла</span>
                                     {% elif import_history.status == 'pending' %}
                                         <span class="badge bg-primary fs-6">Ожидает</span>
                                     {% else %}
@@ -421,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Обновляем видимость кнопок
         const showResume = (data.status === 'failed' || data.status === 'pending' || data.status === 'paused');
         const showPause = (data.status === 'processing');
-        const showCancel = (data.status === 'processing' || data.status === 'paused' || data.status === 'pending');
+        const showCancel = (data.status === 'processing' || data.status === 'paused' || data.status === 'pending' || data.status === 'uploading');
         const showFinalize = (data.status === 'temp_completed');
         
         // Если импорт отменен, показываем все этапы как отменено
@@ -451,6 +453,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (data.status === 'failed') {
                 statusBadge.classList.add('bg-danger');
                 statusBadge.textContent = 'Ошибка';
+            } else if (data.status === 'uploading') {
+                statusBadge.classList.add('bg-info');
+                statusBadge.textContent = 'Загрузка файла';
             } else if (data.status === 'pending') {
                 statusBadge.classList.add('bg-primary');
                 statusBadge.textContent = 'Ожидает';

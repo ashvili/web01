@@ -22,7 +22,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="fw-semibold mb-3">Загрузка файла CSV</h5>
-                    <form method="post" enctype="multipart/form-data" novalidate>
+                    <form id="import-form" method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
                         
                         <div class="mb-3">
@@ -56,15 +56,133 @@
                             <label class="form-check-label" for="{{ form.has_header.id_for_label }}">{{ form.has_header.label }}</label>
                             <div class="form-text">{{ form.has_header.help_text }}</div>
                         </div>
-                        <div class="form-check mb-4">
-                            {{ form.update_existing }}
-                            <label class="form-check-label" for="{{ form.update_existing.id_for_label }}">{{ form.update_existing.label }}</label>
-                            <div class="form-text">{{ form.update_existing.help_text }}</div>
-                        </div>
                         <div class="text-end">
-                            <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-arrow-up"></i> Импортировать</button>
+                            <button type="submit" id="import-btn" class="btn btn-primary">
+                                <i class="bi bi-file-earmark-arrow-up"></i> Импортировать
+                            </button>
+                        </div>
+                        
+                        <!-- Индикатор прогресса загрузки -->
+                        <div id="upload-progress" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+                                    <span id="upload-status">Загрузка файла...</span>
+                                </div>
+                                <div class="progress mt-2">
+                                    <div id="upload-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                </div>
+                            </div>
                         </div>
                     </form>
+
+                    <!-- Блок прогресса импорта (покажется после старта) -->
+                    <div id="import-progress-card" class="mt-4" style="display:none;">
+                        <div class="card">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">Прогресс импорта</h5>
+                                <button id="new-import-btn" class="btn btn-sm btn-outline-primary" type="button" style="display: none;">
+                                    <i class="bi bi-plus-circle"></i> Новый импорт
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title">Статус</h6>
+                                                <span id="status-badge" class="badge bg-secondary fs-6">Ожидает</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title">Создано</h6>
+                                                <span id="created-count" class="fs-4 text-success">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title">Ошибок</h6>
+                                                <span id="failed-count" class="fs-4 text-danger">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <div class="progress">
+                                        <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                    </div>
+                                    <div class="d-flex justify-content-between small mt-1">
+                                        <span>Обработано записей: <span id="processed-count">0</span></span>
+                                    </div>
+                                    <div class="mt-2 d-flex gap-2">
+                                        <button id="pause-button" class="btn btn-sm btn-outline-warning" type="button" style="display:none;">Пауза</button>
+                                        <button id="resume-button" class="btn btn-sm btn-outline-primary" type="button" style="display:none;">Возобновить</button>
+                                        <button id="cancel-button" class="btn btn-sm btn-outline-danger" type="button" style="display:none;">Отмена</button>
+                                        <button id="finalize-button" class="btn btn-sm btn-success" type="button" style="display:none;">
+                                            <i class="bi bi-check-circle"></i> Финализировать импорт
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <ul class="list-group">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Инициализация
+                                            <span id="step-initializing" class="badge bg-secondary">...</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Создание временной таблицы
+                                            <span id="step-creating_temp_table" class="badge bg-secondary">...</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Импорт записей
+                                            <span id="step-processing" class="badge bg-secondary">...</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Ожидание финализации
+                                            <span id="step-waiting_finalization" class="badge bg-secondary">...</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Финализация
+                                            <span id="step-finalizing" class="badge bg-secondary">...</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Завершение
+                                            <span id="step-completed" class="badge bg-secondary">...</span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div id="errors-button-container" class="mt-3" style="display: none;">
+                                    <button id="show-errors-btn" class="btn btn-outline-danger btn-sm" type="button">
+                                        <i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)
+                                    </button>
+                                </div>
+                                <div id="errors-container" class="mt-3" style="display: none;">
+                                    <h6 class="text-danger">Детали ошибок импорта:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Строка</th>
+                                                    <th>Ошибка</th>
+                                                    <th>Исходные данные</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="errors-table-body"></tbody>
+                                        </table>
+                                    </div>
+                                    <div id="errors-info" class="text-muted small mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -98,4 +216,389 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('import-form');
+    const importBtn = document.getElementById('import-btn');
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const progressCard = document.getElementById('import-progress-card');
+    const bar = document.getElementById('import-progress-bar');
+    const processedEl = document.getElementById('processed-count');
+    const resumeBtn = document.getElementById('resume-button');
+    const pauseBtn = document.getElementById('pause-button');
+    const cancelBtn = document.getElementById('cancel-button');
+    const finalizeBtn = document.getElementById('finalize-button');
+    const statusBadge = document.getElementById('status-badge');
+    const showErrorsBtn = document.getElementById('show-errors-btn');
+    const errorsContainer = document.getElementById('errors-container');
+    const errorsTableBody = document.getElementById('errors-table-body');
+    const errorsInfo = document.getElementById('errors-info');
+    const errorsButtonContainer = document.getElementById('errors-button-container');
+    const errorsCount = document.getElementById('errors-count');
+    const newImportBtn = document.getElementById('new-import-btn');
+    let currentImportId = null;
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Показываем индикатор прогресса
+        uploadProgress.style.display = 'block';
+        importBtn.disabled = true;
+        importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Загрузка...';
+        
+        // Создаем FormData для AJAX запроса
+        const formData = new FormData(form);
+        
+        // Создаем XMLHttpRequest для отслеживания прогресса
+        const xhr = new XMLHttpRequest();
+        
+        // Отслеживаем прогресс загрузки
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                uploadProgressBar.style.width = percentComplete + '%';
+                uploadProgressBar.setAttribute('aria-valuenow', percentComplete);
+                uploadProgressBar.textContent = Math.round(percentComplete) + '%';
+                uploadStatus.textContent = `Загрузка файла... ${Math.round(percentComplete)}%`;
+            }
+        });
+        
+        // Обрабатываем ответ
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        currentImportId = response.import_id;
+                        uploadStatus.textContent = 'Файл загружен! Импорт запущен...';
+                        uploadProgressBar.style.width = '100%';
+                        uploadProgressBar.setAttribute('aria-valuenow', 100);
+                        uploadProgressBar.textContent = '100%';
+                        
+                        // Скрываем форму загрузки и показываем блок прогресса
+                        form.style.display = 'none';
+                        uploadProgress.style.display = 'none';
+                        progressCard.style.display = 'block';
+                        poll();
+                    } else {
+                        uploadProgress.style.display = 'none';
+                        importBtn.disabled = false;
+                        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+                        alert('Ошибка: ' + response.error);
+                    }
+                } catch (e) {
+                    uploadProgress.style.display = 'none';
+                    importBtn.disabled = false;
+                    importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+                    alert('Ошибка при обработке ответа сервера');
+                }
+            } else {
+                uploadProgress.style.display = 'none';
+                importBtn.disabled = false;
+                importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+                alert('Ошибка сервера: ' + xhr.status);
+            }
+        });
+        
+        // Обрабатываем ошибки
+        xhr.addEventListener('error', function() {
+            uploadProgress.style.display = 'none';
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+            alert('Ошибка сети при загрузке файла');
+        });
+        
+        // Отправляем запрос
+        xhr.open('POST', '{% url "subscribers:import_csv_async" %}');
+        xhr.send(formData);
+    });
+
+    function getCookie(name){
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function updateErrorsButton(failedCount) {
+        if (errorsButtonContainer && errorsCount) {
+            if (failedCount > 0) {
+                errorsButtonContainer.style.display = 'block';
+                errorsCount.textContent = failedCount;
+                if (errorsContainer && errorsContainer.style.display !== 'none') {
+                    loadErrors();
+                }
+            } else {
+                errorsButtonContainer.style.display = 'none';
+                errorsContainer.style.display = 'none';
+            }
+        }
+    }
+
+    function loadErrors() {
+        if (!currentImportId) return;
+        fetch('{% url "subscribers:import_errors" 0 %}'.replace('0', currentImportId))
+            .then(r => r.json())
+            .then(data => {
+                if (!errorsTableBody || !errorsInfo) return;
+                if (data.errors && data.errors.length > 0) {
+                    errorsTableBody.innerHTML = '';
+                    const errorsToShow = data.errors.slice(0, 10);
+                    errorsToShow.forEach(error => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="text-center">${error.row_index}</td>
+                            <td class="text-danger">${error.message}</td>
+                            <td class="font-monospace small">${error.raw_data ? error.raw_data.substring(0, 100) : '<em class="text-muted">Данные не сохранены</em>'}</td>
+                        `;
+                        errorsTableBody.appendChild(row);
+                    });
+                    if (data.total_errors > 10) {
+                        errorsInfo.innerHTML = `Показано первых 10 ошибок из ${data.total_errors}.`;
+                    } else {
+                        errorsInfo.innerHTML = `Показано ${data.total_errors} ошибок.`;
+                    }
+                    errorsContainer.style.display = 'block';
+                }
+            })
+            .catch(() => {});
+    }
+
+    function markStep(phase){
+        const steps = ['initializing','creating_temp_table','processing','waiting_finalization','finalizing','completed'];
+        if (phase === 'cancelled') {
+            steps.forEach(s => {
+                const el = document.getElementById('step-' + s);
+                if (!el) return;
+                if (el.classList.contains('bg-success')) {
+                    el.className = 'badge bg-success';
+                    el.textContent = 'OK';
+                } else {
+                    el.className = 'badge bg-danger';
+                    el.textContent = 'Отменено';
+                }
+            });
+            return;
+        }
+        steps.forEach(s => {
+            const el = document.getElementById('step-' + s);
+            if (!el) return;
+            el.className = 'badge bg-secondary';
+            el.textContent = '...';
+        });
+        const currentIdx = steps.indexOf(phase);
+        steps.forEach((s, idx) => {
+            const el = document.getElementById('step-' + s);
+            if (!el) return;
+            if (currentIdx === -1) {
+                el.className = 'badge bg-secondary';
+                el.textContent = '...';
+            } else if (idx < currentIdx) {
+                el.className = 'badge bg-success';
+                el.textContent = 'OK';
+            } else if (idx === currentIdx) {
+                if (phase === 'waiting_finalization') {
+                    el.className = 'badge bg-warning';
+                    el.textContent = 'Ожидает';
+                } else if (phase === 'completed') {
+                    el.className = 'badge bg-success';
+                    el.textContent = 'OK';
+                } else {
+                    el.className = 'badge bg-info';
+                    el.textContent = 'Выполняется';
+                }
+            } else {
+                el.className = 'badge bg-secondary';
+                el.textContent = '...';
+            }
+        });
+    }
+
+    function updateStatusBadge(status) {
+        if (!statusBadge) return;
+        statusBadge.className = 'badge fs-6';
+        if (status === 'completed') {
+            statusBadge.classList.add('bg-success');
+            statusBadge.textContent = 'Завершено';
+        } else if (status === 'temp_completed') {
+            statusBadge.classList.add('bg-warning','text-dark');
+            statusBadge.textContent = 'Ожидает финализации';
+        } else if (status === 'processing') {
+            statusBadge.classList.add('bg-warning','text-dark');
+            statusBadge.textContent = 'В обработке';
+        } else if (status === 'paused') {
+            statusBadge.classList.add('bg-info');
+            statusBadge.textContent = 'На паузе';
+        } else if (status === 'cancelled') {
+            statusBadge.classList.add('bg-secondary');
+            statusBadge.textContent = 'Отменено';
+        } else if (status === 'failed') {
+            statusBadge.classList.add('bg-danger');
+            statusBadge.textContent = 'Ошибка';
+        } else if (status === 'uploading') {
+            statusBadge.classList.add('bg-info');
+            statusBadge.textContent = 'Загрузка файла';
+        } else if (status === 'pending') {
+            statusBadge.classList.add('bg-primary');
+            statusBadge.textContent = 'Ожидает';
+        } else {
+            statusBadge.classList.add('bg-secondary');
+            statusBadge.textContent = status;
+        }
+    }
+
+    function updateUI(data){
+        const total = data.total || 0;
+        const processed = data.processed || 0;
+        const pct = typeof data.progress_percent === 'number' ? data.progress_percent : 0;
+        bar.style.width = pct + '%';
+        bar.setAttribute('aria-valuenow', pct);
+        bar.textContent = pct + '%';
+        // Форматируем числа с разделителями тысяч
+        const formatNum = (n) => (typeof n === 'number' ? n.toLocaleString('ru-RU') : n);
+        processedEl.textContent = formatNum(processed);
+        // total-count элемент удалён из UI, больше не обновляем
+        if (typeof data.records_created === 'number') document.getElementById('created-count').textContent = formatNum(data.records_created);
+        if (typeof data.records_failed === 'number') {
+            document.getElementById('failed-count').textContent = formatNum(data.records_failed);
+            updateErrorsButton(data.records_failed);
+        }
+        if (data.phase) markStep(data.phase);
+        updateStatusBadge(data.status);
+
+        const effectiveProcessing = (data.status === 'processing') || (data.status === 'pending' && ['initializing','creating_temp_table','processing'].includes(data.phase));
+        const showResume = (data.status === 'failed' || data.status === 'pending' || data.status === 'paused');
+        const showPause = effectiveProcessing;
+        const showCancel = effectiveProcessing || data.status === 'paused' || data.status === 'pending' || data.status === 'uploading';
+        const showFinalize = (data.status === 'temp_completed');
+        const showNewImport = (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled');
+        
+        resumeBtn.style.display = showResume ? 'inline-block' : 'none';
+        pauseBtn.style.display = showPause ? 'inline-block' : 'none';
+        cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+        finalizeBtn.style.display = showFinalize ? 'inline-block' : 'none';
+        newImportBtn.style.display = showNewImport ? 'inline-block' : 'none';
+    }
+
+    function poll(){
+        if (!currentImportId) return;
+        fetch('{% url "subscribers:import_status" 0 %}'.replace('0', currentImportId))
+            .then(r => r.json())
+            .then(data => {
+                updateUI(data);
+                if (data.status === 'processing' || data.status === 'paused' || data.status === 'pending') {
+                    setTimeout(poll, 1500);
+                }
+            })
+            .catch(() => {
+                setTimeout(poll, 3000);
+            });
+    }
+
+    resumeBtn?.addEventListener('click', function(){
+        if (!currentImportId) return;
+        fetch('{% url "subscribers:import_resume" 0 %}'.replace('0', currentImportId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
+            .then(r => r.json())
+            .then(() => poll())
+            .catch(() => {});
+    });
+    pauseBtn?.addEventListener('click', function(){
+        if (!currentImportId) return;
+        fetch('{% url "subscribers:import_pause" 0 %}'.replace('0', currentImportId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
+            .then(r => r.json())
+            .then(() => poll())
+            .catch(() => {});
+    });
+    cancelBtn?.addEventListener('click', function(){
+        if (!currentImportId) return;
+        if (!confirm('Остановить импорт? Действие нельзя отменить.')) return;
+        fetch('{% url "subscribers:import_cancel" 0 %}'.replace('0', currentImportId), {method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }})
+            .then(r => r.json())
+            .then(() => poll())
+            .catch(() => {});
+    });
+    finalizeBtn?.addEventListener('click', function(){
+        if (!currentImportId) return;
+        if (!confirm('Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить.')) return;
+        finalizeBtn.disabled = true;
+        finalizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Финализация...';
+        fetch('{% url "subscribers:import_finalize" 0 %}'.replace('0', currentImportId), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') || '' }
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                alert('Импорт успешно финализирован!');
+                setTimeout(poll, 1000);
+            } else {
+                alert('Ошибка при финализации: ' + data.error);
+                finalizeBtn.disabled = false;
+                finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+            }
+        }).catch(() => {
+            alert('Произошла ошибка при финализации импорта');
+            finalizeBtn.disabled = false;
+            finalizeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Финализировать импорт';
+        });
+    });
+
+    showErrorsBtn?.addEventListener('click', function(){
+        if (errorsContainer.style.display === 'none') {
+            loadErrors();
+        } else {
+            errorsContainer.style.display = 'none';
+            this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Показать ошибки (<span id="errors-count">0</span>)`;
+        }
+    });
+
+    // Обработчик для кнопки "Новый импорт"
+    newImportBtn?.addEventListener('click', function(){
+        // Сбрасываем форму
+        form.reset();
+        form.style.display = 'block';
+        
+        // Скрываем блок прогресса
+        progressCard.style.display = 'none';
+        uploadProgress.style.display = 'none';
+        
+        // Сбрасываем состояние кнопки импорта
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-up"></i> Импортировать';
+        
+        // Сбрасываем переменные
+        currentImportId = null;
+        
+        // Сбрасываем прогресс
+        bar.style.width = '0%';
+        bar.setAttribute('aria-valuenow', 0);
+        bar.textContent = '0%';
+        processedEl.textContent = '0';
+        // total-count элемент удалён
+        document.getElementById('created-count').textContent = '0';
+        document.getElementById('failed-count').textContent = '0';
+        statusBadge.className = 'badge bg-secondary fs-6';
+        statusBadge.textContent = 'Ожидает';
+        
+        // Скрываем кнопки управления
+        resumeBtn.style.display = 'none';
+        pauseBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        finalizeBtn.style.display = 'none';
+        newImportBtn.style.display = 'none';
+        errorsButtonContainer.style.display = 'none';
+        errorsContainer.style.display = 'none';
+        
+        // Сбрасываем этапы
+        const steps = ['initializing','counting','creating_temp_table','processing','waiting_finalization','finalizing','completed'];
+        steps.forEach(s => {
+            const el = document.getElementById('step-' + s);
+            if (el) {
+                el.className = 'badge bg-secondary';
+                el.textContent = '...';
+            }
+        });
+    });
+});
+</script>
 {% endblock %} 

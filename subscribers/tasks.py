@@ -152,7 +152,7 @@ logger = logging.getLogger(__name__)
 _RUNNING_IMPORTS = {}
 
 # Имитация задачи Celery с помощью обычной функции
-def process_csv_import_task(csv_data, import_history_id, delimiter, encoding, has_header, update_existing):
+def process_csv_import_task(csv_data, import_history_id, delimiter, encoding, has_header):
     """
     Функция для обработки импорта CSV в базу данных
     
@@ -162,7 +162,6 @@ def process_csv_import_task(csv_data, import_history_id, delimiter, encoding, ha
         delimiter: Разделитель CSV
         encoding: Кодировка файла
         has_header: Содержит ли CSV заголовок
-        update_existing: Обновлять ли существующие записи
     """
     # Имитация асинхронной задачи
     def delay(*args, **kwargs):
@@ -173,9 +172,9 @@ def process_csv_import_task(csv_data, import_history_id, delimiter, encoding, ha
     process_csv_import_task.delay = delay
     
     # Выполняем реальную работу
-    return process_csv_import_task_impl(csv_data, import_history_id, delimiter, encoding, has_header, update_existing)
+    return process_csv_import_task_impl(csv_data, import_history_id, delimiter, encoding, has_header)
 
-def process_csv_import_task_impl(csv_data, import_history_id, delimiter, encoding, has_header, update_existing):
+def process_csv_import_task_impl(csv_data, import_history_id, delimiter, encoding, has_header):
     """
     Обрабатывает импорт данных из CSV.
     Переносит данные из старой таблицы в архивную и заполняет новую.
@@ -559,70 +558,6 @@ def process_csv_import_task_impl(csv_data, import_history_id, delimiter, encodin
 
 # === РЕЖИМ ПОТОКОВОГО (РЕЗЮМИРУЕМОГО) ИМПОРТА ===
 
-def _count_total_records(file_path: Path, delimiter: str, has_header: bool) -> int:
-    """
-    Подсчёт числа логических записей в CSV с учетом умного склеивания.
-    Использует ту же логику, что и _process_csv_lines_with_smart_joining.
-    """
-    logger.info(f"📊 Подсчет общего количества записей с умным склеиванием...")
-    
-    total = 0
-    
-    with file_path.open('r', encoding='utf-8', errors='ignore') as fh:
-        # Читаем все строки сразу для возможности предпросмотра
-        all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
-        
-        logger.info(f"📁 Файл прочитан для подсчета: {len(all_lines)} физических строк")
-        
-        i = 0
-        while i < len(all_lines):
-            current_line = _clean_line_for_combining(all_lines[i])
-            physical_line_idx = i + 1  # Номер строки в файле (1-based)
-            
-            # Пропускаем заголовок
-            if physical_line_idx == 1 and has_header:
-                i += 1
-                continue
-                
-            # Пропускаем пустые строки
-            if not current_line:
-                i += 1
-                continue
-            
-            # Проверяем, является ли текущая строка валидной (ID + телефонный номер)
-            is_current_valid = _is_valid_line(current_line, delimiter)
-            
-            if is_current_valid:
-                # Текущая строка валидная - считаем как одну логическую запись
-                total += 1
-                
-                # Пропускаем все следующие строки до следующей валидной строки
-                j = i + 1
-                while j < len(all_lines):
-                    next_line = _clean_line_for_combining(all_lines[j])
-                    
-                    # Пропускаем пустые строки
-                    if not next_line:
-                        j += 1
-                        continue
-                    
-                    is_next_valid = _is_valid_line(next_line, delimiter)
-                    
-                    if is_next_valid:
-                        # Следующая строка валидная - прекращаем поиск
-                        break
-                    else:
-                        # Следующая строка не валидная - пропускаем ее (это продолжение текущей записи)
-                        j += 1
-                
-                # Переходим к найденной валидной строке или к концу файла
-                i = j
-            else:
-                # Текущая строка не валидная - пропускаем (не должно быть при правильной логике)
-                i += 1
-    
-    logger.info(f"📊 Подсчет завершен: {total} логических записей из {len(all_lines)} физических строк")
-    return total
 
 def _process_record_row(parsed, import_history: ImportHistory, created_failed_acc):
     created_count, failed_count, errors = created_failed_acc
@@ -676,16 +611,16 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
         # Подготавливаем данные для вставки во временную таблицу
         record_data = {
             'original_id': parsed['original_id'],
-            'number': parsed['number'],
-            'last_name': parsed['last_name'],
-            'first_name': parsed['first_name'],
-            'middle_name': parsed['middle_name'],
-            'address': parsed['address'],
-            'memo1': parsed['memo1'],
-            'memo2': parsed['memo2'],
-            'birth_place': parsed['birth_place'],
+            'number': _sanitize_text(parsed['number']),
+            'last_name': _sanitize_text(parsed['last_name']),
+            'first_name': _sanitize_text(parsed['first_name']),
+            'middle_name': _sanitize_text(parsed['middle_name']),
+            'address': _sanitize_text(parsed['address']),
+            'memo1': _sanitize_text(parsed['memo1']),
+            'memo2': _sanitize_text(parsed['memo2']),
+            'birth_place': _sanitize_text(parsed['birth_place']),
             'birth_date': parsed['birth_date'],
-            'imsi': parsed['imsi'],
+            'imsi': _sanitize_text(parsed['imsi']),
             'import_history_id': import_history.id,
         }
         
@@ -731,6 +666,9 @@ def _clean_line_for_combining(line):
     
     # Заменяем табуляции и переносы строк на пробелы (но сохраняем разделители)
     cleaned = re.sub(r'[\t\r\n]+', ' ', line)
+
+    # Удаляем NUL-символы, которые не допускаются БД/драйвером
+    cleaned = cleaned.replace('\x00', ' ')
     
     # Убираем множественные пробелы, но сохраняем пробелы вокруг разделителей
     # Это важно для CSV, где пробелы могут быть частью данных
@@ -744,6 +682,15 @@ def _clean_line_for_combining(line):
     cleaned = re.sub(r'\s*,\s*', ',', cleaned)  # Убираем пробелы вокруг запятых
     
     return cleaned
+
+def _sanitize_text(value: Optional[str]) -> Optional[str]:
+    """Безопасная нормализация текста перед вставкой в БД: удаление NUL и тримминг."""
+    if value is None:
+        return None
+    try:
+        return value.replace('\x00', ' ').strip()
+    except Exception:
+        return value
 
 def _extract_id_from_line(line, delimiter):
     """Извлекает ID из первого поля строки."""
@@ -844,6 +791,8 @@ def _try_parse_csv_line(line, delimiter):
         import io
         # Очищаем строку от лишних пробелов перед парсингом
         cleaned_line = _clean_line_for_combining(line)
+        # Удаляем NUL, которые ломают парсер/вставку
+        cleaned_line = cleaned_line.replace('\x00', ' ')
         csv_io = io.StringIO(cleaned_line)
         reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
         return next(reader, None)
@@ -893,7 +842,9 @@ def _try_process_combined_line(combined_line, logical_row_index, delimiter, impo
         logger.info(f"🔍 Парсинг полей записи...")
         parsed = _parse_line_to_record(row_values, logical_row_index, errors)
         if not parsed:
-            logger.error(f"❌ Не удалось распарсить поля записи")
+            logger.error(f"❌ Не удалось распарсить поля записи ❌ Запись {logical_row_index} не удалось обработать")
+            logger.error(f"📝 Проблемная строка: {combined_line}")
+            logger.error(f"📊 Распарсенные поля: {row_values}")
             return False, None
         
         logger.info(f"✅ Поля записи распарсены: {list(parsed.keys())}")
@@ -1017,7 +968,11 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
         # Читаем все строки сразу для возможности предпросмотра
         all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
         
-        logger.info(f"📁 Файл прочитан: {len(all_lines)} строк")
+        # Получаем размер файла для расчета прогресса
+        file_size = file_path.stat().st_size
+        total_lines = len(all_lines)
+        
+        logger.info(f"📁 Файл прочитан: {len(all_lines)} строк, размер: {file_size} байт")
         logger.info(f"📊 Настройки: delimiter='{delimiter}', encoding='{encoding}', has_header={has_header}")
         logger.info(f"🚀 Начинаем обработку с позиции {processed_rows_start}")
         
@@ -1217,13 +1172,18 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                             raw_data=final_raw_data
                         )
                     
-                    # Обновляем прогресс
+                    # Обновляем прогресс на основе обработанных строк
                     import_history.processed_rows = logical_row_index
                     import_history.records_created = created_count
                     import_history.records_failed = failed_count
-                    if import_history.records_count:
-                        pct = int((logical_row_index / import_history.records_count) * 100)
+                    
+                    # Прогресс по количеству обработанных строк от общего количества строк
+                    if total_lines > 0:
+                        pct = int((physical_line_idx / total_lines) * 100)
                         import_history.progress_percent = min(pct, 100)
+                    
+                    # Обновляем records_count как количество обработанных записей
+                    import_history.records_count = logical_row_index
                     
                     if logical_row_index % 10 == 0:
                         import_history.save()
@@ -1341,31 +1301,10 @@ def process_csv_import_stream(import_history_id: int) -> None:
     encoding = import_history.encoding or 'utf-8'
     has_header = import_history.has_header
 
-    # Подсчитываем общее количество записей один раз
-    if not import_history.records_count:
-        try:
-            import_history.phase = 'counting'
-            import_history.save()
-            
-            # Проверяем отмену перед подсчетом
-            import_history.refresh_from_db(fields=['cancel_requested'])
-            if import_history.cancel_requested:
-                logger.info(f"🛑 Импорт {import_history_id} отменен пользователем на этапе подсчета")
-                import_history.status = 'cancelled'
-                import_history.phase = 'cancelled'
-                import_history.stop_reason = 'Отмена пользователем'
-                import_history.progress_percent = 0
-                import_history.save()
-                return
-            
-            total = _count_total_records(file_path, delimiter, has_header)
-            logger.info(f"📊 Подсчитано записей: {total}")
-            import_history.records_count = total
-            import_history.progress_percent = 0
-            import_history.save()
-            logger.info(f"✅ Количество записей сохранено в БД: {import_history.records_count}")
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Не удалось подсчитать количество записей: {e}")
+    # Инициализируем прогресс
+    import_history.records_count = 0  # Будем считать по мере обработки
+    import_history.progress_percent = 0
+    import_history.save()
 
     # Создаем временную таблицу один раз
     if not import_history.temp_table_name:
@@ -1428,14 +1367,9 @@ def process_csv_import_stream(import_history_id: int) -> None:
         import_history.records_created = created_count
         import_history.records_failed = failed_count
         
-        # Устанавливаем общее количество записей равным фактически обработанным
-        # если подсчет не удался или вернул 0
-        if not import_history.records_count or import_history.records_count == 0:
-            import_history.records_count = logical_row_index
-        # Также обновляем records_count если подсчет был неточным
-        elif abs(import_history.records_count - logical_row_index) > 0:
-            logger.info(f"📊 Корректируем количество записей: было {import_history.records_count}, стало {logical_row_index}")
-            import_history.records_count = logical_row_index
+        # Финальное обновление счетчиков
+        import_history.records_count = logical_row_index
+        import_history.progress_percent = 100
         
         # Проверяем, не был ли импорт отменен
         import_history.refresh_from_db(fields=['cancel_requested'])

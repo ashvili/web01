@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import Subscriber, ImportHistory, ImportError
-from .forms import CSVImportForm, ImportCSVForm, SearchForm
+from .forms import CSVImportForm, SearchForm
 from .tasks import process_csv_import_task_impl, start_import_async, is_import_running
 from accounts.utils import is_admin
 
@@ -79,7 +79,7 @@ def subscriber_list(request):
 def import_csv(request):
     """Представление для импорта данных из CSV-файла (только для администраторов)"""
     if request.method == 'POST':
-        form = ImportCSVForm(request.POST, request.FILES)
+        form = CSVImportForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 # Получаем данные из формы
@@ -97,8 +97,6 @@ def import_csv(request):
                 if csv_file.size == 0:
                     messages.error(request, 'Загруженный файл пуст')
                     return render(request, 'subscribers/import_csv.html', {'form': form})
-                
-                # Не читаем файл целиком — сохраняем как есть, валидацию/подсчёт сделает фон
                 
                 # Создаем запись для отслеживания импорта и сохраняем файл
                 import_session_id = f"imp_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{request.user.id}_{csv_file.name[:15].replace(' ', '_')}"
@@ -133,9 +131,66 @@ def import_csv(request):
                 for error in errors:
                     messages.error(request, f'Ошибка в поле {field}: {error}')
     else:
-        form = ImportCSVForm()
+        form = CSVImportForm()
     
     return render(request, 'subscribers/import_csv.html', {'form': form})
+
+@login_required
+@user_passes_test(is_admin, login_url='subscribers:search')
+@csrf_exempt
+def import_csv_async(request):
+    """Асинхронное представление для импорта данных из CSV-файла"""
+    if request.method == 'POST':
+        try:
+            # Получаем данные из AJAX запроса
+            csv_file = request.FILES.get('csv_file')
+            delimiter = request.POST.get('delimiter', ',')
+            encoding = request.POST.get('encoding', 'utf-8')
+            has_header = request.POST.get('has_header') == 'true'
+            
+            if not csv_file:
+                return JsonResponse({'success': False, 'error': 'Файл не найден'})
+            
+            # Проверяем, что это действительно CSV файл
+            if not csv_file.name.lower().endswith('.csv'):
+                return JsonResponse({'success': False, 'error': 'Пожалуйста, загрузите файл в формате CSV'})
+            
+            # Проверяем, что файл не пустой
+            if csv_file.size == 0:
+                return JsonResponse({'success': False, 'error': 'Загруженный файл пуст'})
+            
+            # Создаем запись для отслеживания импорта
+            import_session_id = f"imp_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{request.user.id}_{csv_file.name[:15].replace(' ', '_')}"
+            import_history = ImportHistory.objects.create(
+                file_name=csv_file.name,
+                file_size=csv_file.size,
+                delimiter=delimiter,
+                encoding=encoding,
+                has_header=has_header,
+                created_by=request.user,
+                status='uploading',
+                phase='uploading',
+                import_session_id=import_session_id
+            )
+            
+            # Сохраняем файл асинхронно
+            import_history.uploaded_file = csv_file
+            import_history.save()
+            
+            # Стартуем асинхронный импорт
+            started_now = start_import_async(import_history.id)
+            
+            return JsonResponse({
+                'success': True, 
+                'import_id': import_history.id,
+                'message': 'Импорт запущен в фоне. Можно следить за прогрессом.' if started_now else 'Импорт уже выполняется.'
+            })
+            
+        except Exception as e:
+            logger.error(f'Ошибка при асинхронном импорте: {str(e)}')
+            return JsonResponse({'success': False, 'error': f'Произошла ошибка: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Метод не поддерживается'})
 
 @login_required
 @user_passes_test(is_admin, login_url='subscribers:search')

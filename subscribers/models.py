@@ -53,6 +53,7 @@ class Subscriber(models.Model):
 class ImportHistory(models.Model):
     """Модель для хранения истории импорта данных"""
     STATUS_CHOICES = (
+        ('uploading', 'Загрузка файла'),
         ('pending', 'В ожидании'),
         ('processing', 'В обработке'),
         ('paused', 'Пауза'),

@@ -13,7 +13,7 @@ def is_admin(user):
         bool: True, если пользователь является администратором
     """
     # print('user.profile.user_type = ', user.profile.user_type)
-    print('user.is_superuser = ', user.is_superuser)
+    # print('user.is_superuser = ', user.is_superuser)
     # if user.is_superuser:
     #     return True
     
