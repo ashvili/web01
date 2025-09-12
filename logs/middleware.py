@@ -15,13 +15,19 @@ class UserActionLoggingMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         # Логируем действия ВСЕХ аутентифицированных пользователей
         if request.user.is_authenticated:
-            # Не логируем просто открытие страницы поиска абонентов (GET и POST)
+            # Определяем тип действия по пути
             if request.path == '/subscribers/search/':
-                # Но если есть параметры поиска — логируем как SEARCH
+                # Если есть параметры поиска — логируем как SEARCH, иначе пропускаем
                 if request.GET or request.POST:
                     action_type = 'SEARCH'
                 else:
                     return response
+            elif '/accounts/logout' in request.path:
+                # LOGOUT логируется кастомным view; пропускаем, чтобы не дублировать
+                return response
+            elif '/subscribers/import' in request.path:
+                # Импорт логируется явно во вьюхах как IMPORT; избегаем дубля
+                return response
             else:
                 action_type = 'OTHER'
             if request.method == 'GET' and not request.GET:

@@ -8,7 +8,8 @@ app_name = 'accounts'
 urlpatterns = [
     path('', views.HomeView.as_view(), name='home'),
     path('login/', views.LoginView.as_view(), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    # Используем кастомный logout, чтобы явно логировать тип LOGOUT
+    path('logout/', views.custom_logout_view, name='logout'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('otp-required/', views.OtpRequiredView.as_view(), name='otp_required'),
     

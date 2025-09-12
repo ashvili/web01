@@ -454,7 +454,7 @@ def custom_logout_view(request):
         log_logout(request, request.user)
     
     logout(request)
-    return redirect('login')
+    return redirect('accounts:login')
 
 # Пример использования декоратора для функций
 @log_action_decorator('UPDATE')

@@ -115,6 +115,24 @@ def import_csv(request):
                 import_history.uploaded_file = csv_file
                 import_history.save()
 
+                # ЯВНОЕ ЛОГИРОВАНИЕ ИМПОРТА
+                try:
+                    log_import(
+                        request,
+                        request.user,
+                        additional_data={
+                            'import_id': import_history.id,
+                            'file_name': csv_file.name,
+                            'file_size': csv_file.size,
+                            'delimiter': delimiter,
+                            'encoding': encoding,
+                            'has_header': has_header,
+                            'mode': 'sync-init'
+                        }
+                    )
+                except Exception:
+                    pass
+
                 # Стартуем асинхронный импорт
                 started_now = start_import_async(import_history.id)
                 if started_now:
@@ -176,6 +194,24 @@ def import_csv_async(request):
             # Сохраняем файл асинхронно
             import_history.uploaded_file = csv_file
             import_history.save()
+
+            # ЯВНОЕ ЛОГИРОВАНИЕ ИМПОРТА (async)
+            try:
+                log_import(
+                    request,
+                    request.user,
+                    additional_data={
+                        'import_id': import_history.id,
+                        'file_name': csv_file.name,
+                        'file_size': csv_file.size,
+                        'delimiter': delimiter,
+                        'encoding': encoding,
+                        'has_header': has_header,
+                        'mode': 'async-init'
+                    }
+                )
+            except Exception:
+                pass
             
             # Стартуем асинхронный импорт
             started_now = start_import_async(import_history.id)
