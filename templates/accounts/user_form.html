@@ -14,7 +14,7 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card shadow">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         {% if user_form.instance.id %}
                             {% trans "Редактирование пользователя" %} {{ user_form.instance.username }}
@@ -22,6 +22,7 @@
                             {% trans "Создание нового пользователя" %}
                         {% endif %}
                     </h5>
+                    <a href="{% url 'accounts:user_list' %}" class="btn-close btn-close-white" aria-label="{% trans 'Закрыть' %}"></a>
                 </div>
                 <div class="card-body">
                     <form method="post" class="needs-validation" novalidate>
@@ -128,28 +129,6 @@
                                     {% endif %}
                                 </div>
                                 
-                                <h6 class="mt-4 mb-3">{% trans "Разрешения" %}</h6>
-                                
-                                <div class="mb-3 form-check">
-                                    {{ profile_form.can_import_data }}
-                                    <label class="form-check-label" for="{{ profile_form.can_import_data.id_for_label }}">
-                                        {{ profile_form.can_import_data.label }}
-                                    </label>
-                                </div>
-                                
-                                <div class="mb-3 form-check">
-                                    {{ profile_form.can_export_data }}
-                                    <label class="form-check-label" for="{{ profile_form.can_export_data.id_for_label }}">
-                                        {{ profile_form.can_export_data.label }}
-                                    </label>
-                                </div>
-                                
-                                <div class="mb-3 form-check">
-                                    {{ profile_form.can_view_logs }}
-                                    <label class="form-check-label" for="{{ profile_form.can_view_logs.id_for_label }}">
-                                        {{ profile_form.can_view_logs.label }}
-                                    </label>
-                                </div>
                                 
                                 <h6 class="mt-4 mb-3">{% trans "Двухфакторная аутентификация (2FA)" %}</h6>
                                 
@@ -191,4 +170,50 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Предупреждение при попытке закрыть форму с несохраненными изменениями
+    const form = document.querySelector('form');
+    const closeButton = document.querySelector('.btn-close');
+    let formChanged = false;
+    
+    // Отслеживаем изменения в форме
+    form.addEventListener('input', function() {
+        formChanged = true;
+    });
+    
+    form.addEventListener('change', function() {
+        formChanged = true;
+    });
+    
+    // Обработка отправки формы
+    form.addEventListener('submit', function() {
+        formChanged = false;
+    });
+    
+    // Обработка клика по крестику
+    closeButton.addEventListener('click', function(e) {
+        if (formChanged) {
+            if (!confirm('{% trans "У вас есть несохраненные изменения. Вы уверены, что хотите закрыть форму?" %}')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+    
+    // Обработка кнопки "Отмена"
+    const cancelButton = document.querySelector('a[href="{% url 'accounts:user_list' %}"]');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', function(e) {
+            if (formChanged) {
+                if (!confirm('{% trans "У вас есть несохраненные изменения. Вы уверены, что хотите закрыть форму?" %}')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %} 

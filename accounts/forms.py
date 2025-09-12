@@ -104,13 +104,15 @@ class UserProfileForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['department', 'position', 'phone_number']
+        fields = ['user_type', 'department', 'position', 'phone_number']
         labels = {
+            'user_type': _('Тип пользователя'),
             'department': _('Отдел'),
             'position': _('Должность'),
             'phone_number': _('Телефон')
         }
         widgets = {
+            'user_type': forms.Select(attrs={'class': 'form-control'}),
             'department': forms.TextInput(attrs={'class': 'form-control'}),
             'position': forms.TextInput(attrs={'class': 'form-control'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control'})
@@ -119,6 +121,12 @@ class UserProfileForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        
+        # Инициализируем поля пользователя, если пользователь передан
+        if self.user:
+            self.fields['first_name'].initial = self.user.first_name
+            self.fields['last_name'].initial = self.user.last_name
+            self.fields['email'].initial = self.user.email
     
     def save(self, commit=True):
         """Сохраняет форму и обновляет поля пользователя"""

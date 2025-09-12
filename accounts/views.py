@@ -286,7 +286,7 @@ def user_list(request):
 def user_create(request):
     if request.method == 'POST':
         user_form = UserForm(request.POST)
-        profile_form = UserProfileForm(request.POST)
+        profile_form = UserProfileForm(request.POST, user=None)
         if user_form.is_valid() and profile_form.is_valid():
             # Сохраняем пользователя
             user = user_form.save(commit=False)
@@ -304,7 +304,7 @@ def user_create(request):
             return redirect('accounts:user_list')
     else:
         user_form = UserForm()
-        profile_form = UserProfileForm()
+        profile_form = UserProfileForm(user=None)
     return render(request, 'accounts/user_form.html', {
         'user_form': user_form,
         'profile_form': profile_form
@@ -316,7 +316,7 @@ def user_edit(request, pk):
     user = get_object_or_404(User, pk=pk)
     if request.method == 'POST':
         user_form = UserForm(request.POST, instance=user)
-        profile_form = UserProfileForm(request.POST, instance=user.profile)
+        profile_form = UserProfileForm(request.POST, instance=user.profile, user=user)
         totp_form = TOTPForm(request.POST, user=user)
         
         if user_form.is_valid() and profile_form.is_valid() and totp_form.is_valid():
@@ -357,7 +357,7 @@ def user_edit(request, pk):
             return redirect('accounts:user_list')
     else:
         user_form = UserForm(instance=user)
-        profile_form = UserProfileForm(instance=user.profile)
+        profile_form = UserProfileForm(instance=user.profile, user=user)
         totp_form = TOTPForm(user=user)
     
     return render(request, 'accounts/user_form.html', {
