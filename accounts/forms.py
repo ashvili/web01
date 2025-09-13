@@ -28,6 +28,10 @@ class UserForm(forms.ModelForm):
         self.instance = kwargs.get('instance')
         super().__init__(*args, **kwargs)
         
+        # Делаем поля first_name и last_name необязательными
+        self.fields['first_name'].required = False
+        self.fields['last_name'].required = False
+        
         # Если это создание нового пользователя, пароль обязателен
         if not self.instance or not self.instance.pk:
             self.fields['password'].required = True
@@ -65,21 +69,26 @@ class UserForm(forms.ModelForm):
         # Получаем очищенный пароль
         password = self.cleaned_data.get('password')
 
-        # Если пароль не пустой, обновляем его
-        if password:
-            from django.contrib.auth.hashers import make_password
-            user.password = make_password(password)
-
         # Если это создание нового пользователя, пароль обязателен
         if not self.instance or not self.instance.pk:
             if not password:
                 raise forms.ValidationError(_("Пароль обязателен для нового пользователя"))
+            from django.contrib.auth.hashers import make_password
             user.password = make_password(password)
+        else:
+            # Если это редактирование существующего пользователя
+            if password:
+                # Если пароль не пустой, обновляем его
+                from django.contrib.auth.hashers import make_password
+                user.password = make_password(password)
+            # Если пароль пустой, не трогаем его (оставляем старый)
         
         if commit:
-            if not password:
+            if not password and (self.instance and self.instance.pk):
+                # При редактировании с пустым паролем не обновляем поле password
                 user.save(update_fields=['username', 'first_name', 'last_name', 'email'])
             else:
+                # При создании или изменении пароля сохраняем все поля
                 user.save()
         
         return user
@@ -89,11 +98,13 @@ class UserProfileForm(forms.ModelForm):
     # Добавляем поля пользователя
     first_name = forms.CharField(
         max_length=30,
+        required=False,
         label=_('Имя'),
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     last_name = forms.CharField(
         max_length=30,
+        required=False,
         label=_('Фамилия'),
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
@@ -137,7 +148,8 @@ class UserProfileForm(forms.ModelForm):
             self.user.first_name = self.cleaned_data['first_name']
             self.user.last_name = self.cleaned_data['last_name']
             self.user.email = self.cleaned_data['email']
-            self.user.save()
+            # Сохраняем только поля, которые мы изменили, не трогая пароль
+            self.user.save(update_fields=['first_name', 'last_name', 'email'])
         
         if commit:
             profile.save()

@@ -383,8 +383,9 @@ def user_edit(request, pk):
             print(f"DEBUG: was_totp_enabled={was_totp_enabled}")
             print(f"DEBUG: had_totp_secret={had_totp_secret}")
             
-            # Сначала сохраняем основные данные пользователя
+            # Сохраняем данные пользователя (включая пароль)
             user_form.save()
+            # Сохраняем профиль (не трогая пароль)
             profile_form.save()
             
             # Сброс настроек 2FA, если запрошено
