@@ -4,7 +4,7 @@ from django.views.generic import TemplateView, FormView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import update_session_auth_hash, login, authenticate, logout
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
 from django.views.decorators.http import require_POST
@@ -117,30 +117,73 @@ def set_theme(request):
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
 # Страница с ошибкой доступа для двухфакторной аутентификации
-class OtpRequiredView(LoginRequiredMixin, View):
+class OtpRequiredView(View):
     template_name = 'accounts/otp.html'
     
     def get(self, request):
-        if not request.user.profile.totp_enabled:
-            return redirect('subscribers:search')
+        # Проверяем, есть ли данные пользователя в сессии
+        if not request.session.get('pending_user_id'):
+            return redirect('accounts:login')
+        
+        try:
+            user = User.objects.get(id=request.session['pending_user_id'])
+            if not user.profile.totp_enabled:
+                # Очищаем сессию и перенаправляем на вход
+                request.session.pop('pending_user_id', None)
+                request.session.pop('pending_username', None)
+                return redirect('accounts:login')
+        except User.DoesNotExist:
+            # Очищаем сессию и перенаправляем на вход
+            request.session.pop('pending_user_id', None)
+            request.session.pop('pending_username', None)
+            return redirect('accounts:login')
+        
         return render(request, self.template_name)
     
     def post(self, request):
-        if not request.user.profile.totp_enabled:
-            return redirect('subscribers:search')
+        # Проверяем, есть ли данные пользователя в сессии
+        if not request.session.get('pending_user_id'):
+            return redirect('accounts:login')
+        
+        try:
+            user = User.objects.get(id=request.session['pending_user_id'])
+            if not user.profile.totp_enabled:
+                # Очищаем сессию и перенаправляем на вход
+                request.session.pop('pending_user_id', None)
+                request.session.pop('pending_username', None)
+                return redirect('accounts:login')
+        except User.DoesNotExist:
+            # Очищаем сессию и перенаправляем на вход
+            request.session.pop('pending_user_id', None)
+            request.session.pop('pending_username', None)
+            return redirect('accounts:login')
         
         import pyotp
         
         token = request.POST.get('token')
-        secret = request.user.profile.totp_secret
+        secret = user.profile.totp_secret
         
         if not secret:
             messages.error(request, '2FA не настроена')
-            return redirect('subscribers:search')
+            # Очищаем сессию и перенаправляем на вход
+            request.session.pop('pending_user_id', None)
+            request.session.pop('pending_username', None)
+            return redirect('accounts:login')
         
         totp = pyotp.TOTP(secret)
         if totp.verify(token):
+            # Аутентифицируем пользователя только после успешной проверки 2FA
+            login(request, user)
+            from logs.utils import log_login
+            log_login(request, user)
+            
+            # Очищаем временные данные из сессии
+            request.session.pop('pending_user_id', None)
+            request.session.pop('pending_username', None)
+            
+            # Устанавливаем флаг успешной 2FA
             request.session['otp_verified'] = True
+            
             return redirect('subscribers:search')
         
         messages.error(request, 'Неверный код')
@@ -260,12 +303,18 @@ class LoginView(View):
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
-                login(request, user)
-                from logs.utils import log_login  # импорт внутри метода, чтобы избежать циклических импортов
-                log_login(request, user)
+                # Проверяем, включена ли 2FA у пользователя
                 if user.profile.totp_enabled:
+                    # Сохраняем данные пользователя в сессии для последующей аутентификации
+                    request.session['pending_user_id'] = user.id
+                    request.session['pending_username'] = username
                     return redirect('accounts:otp_required')
-                return redirect('subscribers:search')
+                else:
+                    # Если 2FA не включена, аутентифицируем пользователя сразу
+                    login(request, user)
+                    from logs.utils import log_login  # импорт внутри метода, чтобы избежать циклических импортов
+                    log_login(request, user)
+                    return redirect('subscribers:search')
         
         return render(request, self.template_name, {'form': form})
 
@@ -319,26 +368,50 @@ def user_edit(request, pk):
         profile_form = UserProfileForm(request.POST, instance=user.profile, user=user)
         totp_form = TOTPForm(request.POST, user=user)
         
-        if user_form.is_valid() and profile_form.is_valid() and totp_form.is_valid():
-            # Обработка настроек 2FA
+        # Проверяем валидность форм
+        forms_valid = user_form.is_valid() and profile_form.is_valid() and totp_form.is_valid()
+        
+        if forms_valid:
+            # Получаем данные 2FA ДО сохранения
             totp_enabled = totp_form.cleaned_data.get('totp_enabled')
             reset_totp = totp_form.cleaned_data.get('reset_totp')
+            was_totp_enabled = user.profile.totp_enabled
+            had_totp_secret = bool(user.profile.totp_secret)
+            
+            # Отладочная информация
+            print(f"DEBUG: totp_enabled={totp_enabled}, reset_totp={reset_totp}")
+            print(f"DEBUG: was_totp_enabled={was_totp_enabled}")
+            print(f"DEBUG: had_totp_secret={had_totp_secret}")
+            
+            # Сначала сохраняем основные данные пользователя
+            user_form.save()
+            profile_form.save()
             
             # Сброс настроек 2FA, если запрошено
             if reset_totp:
                 user.profile.totp_secret = None
                 user.profile.totp_enabled = False
                 user.profile.save()
-                messages.success(request, '2FA отключена и сброшена')
+                messages.success(request, 'Пользователь обновлен. 2FA отключена и сброшена.')
             
             # Если 2FA была включена и она не была ранее настроена или была сброшена
-            elif totp_enabled and (not user.profile.totp_enabled or reset_totp):
+            elif totp_enabled and (not was_totp_enabled or reset_totp):
                 # Генерируем новый секрет
                 secret = pyotp.random_base32()
                 user.profile.totp_secret = secret
                 user.profile.totp_enabled = True
                 user.profile.save()
-                messages.success(request, 'Необходимо завершить настройку 2FA')
+                messages.success(request, 'Пользователь обновлен. Необходимо завершить настройку 2FA.')
+                
+                # Проверяем, это AJAX-запрос
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'status': 'success',
+                        'message': 'Пользователь обновлен. Необходимо завершить настройку 2FA.',
+                        'redirect': reverse('accounts:admin_2fa_setup', kwargs={'pk': user.id}),
+                        'requires_2fa_setup': True
+                    })
+                
                 # Перенаправляем на страницу завершения настройки 2FA для этого пользователя
                 return redirect('accounts:admin_2fa_setup', pk=user.id)
             
@@ -346,15 +419,37 @@ def user_edit(request, pk):
             elif not totp_enabled and user.profile.totp_enabled:
                 user.profile.totp_enabled = False
                 user.profile.save()
-                messages.success(request, '2FA отключена')
+                messages.success(request, 'Пользователь обновлен. 2FA отключена.')
             
-            # Обработка данных пользователя
-            # Пароль обрабатывается в форме UserForm.save()
-            user_form.save()
-            profile_form.save()
+            # Если никаких изменений в 2FA не было
+            else:
+                messages.success(request, 'Пользователь успешно обновлен')
             
-            messages.success(request, 'Пользователь успешно обновлен')
+            # Проверяем, это AJAX-запрос
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Пользователь успешно обновлен',
+                    'redirect': reverse('accounts:user_list')
+                })
+            
             return redirect('accounts:user_list')
+        else:
+            # Если формы не валидны, показываем ошибки
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                errors = {}
+                if not user_form.is_valid():
+                    errors.update(user_form.errors)
+                if not profile_form.is_valid():
+                    errors.update(profile_form.errors)
+                if not totp_form.is_valid():
+                    errors.update(totp_form.errors)
+                
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Ошибки в форме',
+                    'errors': errors
+                })
     else:
         user_form = UserForm(instance=user)
         profile_form = UserProfileForm(instance=user.profile, user=user)
@@ -393,10 +488,23 @@ def admin_2fa_setup(request, pk):
         
         totp = pyotp.TOTP(target_user.profile.totp_secret)
         if totp.verify(token):
-            messages.success(request, '2FA успешно настроена')
+            messages.success(request, '2FA успешно настроена для пользователя')
+            # Проверяем, это AJAX-запрос
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message': '2FA успешно настроена',
+                    'redirect': reverse('accounts:user_edit', kwargs={'pk': pk})
+                })
             return redirect('accounts:user_edit', pk=pk)
         else:
             messages.error(request, 'Неверный код')
+            # Проверяем, это AJAX-запрос
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Неверный код подтверждения'
+                })
     
     # Генерируем QR-код
     import qrcode
@@ -452,6 +560,11 @@ def custom_logout_view(request):
     if request.user.is_authenticated:
         # Логируем выход до того, как пользователь будет разлогинен
         log_logout(request, request.user)
+    
+    # Очищаем все данные 2FA из сессии
+    request.session.pop('otp_verified', None)
+    request.session.pop('pending_user_id', None)
+    request.session.pop('pending_username', None)
     
     logout(request)
     return redirect('accounts:login')

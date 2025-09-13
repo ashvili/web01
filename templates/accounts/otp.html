@@ -33,7 +33,9 @@
                                maxlength="6" 
                                required 
                                autocomplete="off"
-                               autofocus>
+                               autofocus
+                               pattern="[0-9]{6}"
+                               title="Введите 6-значный цифровой код">
                         <div class="form-text">
                             Введите 6-значный код из вашего приложения для двухфакторной аутентификации
                         </div>
@@ -43,10 +45,27 @@
                         <button type="submit" class="btn btn-primary btn-lg px-4">
                             Подтвердить
                         </button>
+                        <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary btn-lg px-4 ms-2">
+                            Отмена
+                        </a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Автоматическая очистка поля при вводе нецифровых символов
+document.getElementById('token').addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+
+// Автоматическая отправка формы при вводе 6 цифр
+document.getElementById('token').addEventListener('input', function(e) {
+    if (this.value.length === 6) {
+        this.form.submit();
+    }
+});
+</script>
 {% endblock %} 

@@ -25,7 +25,7 @@
                     <a href="{% url 'accounts:user_list' %}" class="btn-close btn-close-white" aria-label="{% trans 'Закрыть' %}"></a>
                 </div>
                 <div class="card-body">
-                    <form method="post" class="needs-validation" novalidate>
+                    <form method="post" class="needs-validation" novalidate id="user-form">
                         {% csrf_token %}
                         
                         <div class="row">
@@ -174,7 +174,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Предупреждение при попытке закрыть форму с несохраненными изменениями
-    const form = document.querySelector('form');
+    const form = document.querySelector('#user-form');
     const closeButton = document.querySelector('.btn-close');
     let formChanged = false;
     
@@ -188,8 +188,77 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Обработка отправки формы
-    form.addEventListener('submit', function() {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
         formChanged = false;
+        
+        // Отладочная информация
+        const formData = new FormData(form);
+        console.log('Form data:');
+        for (let [key, value] of formData.entries()) {
+            console.log(key, ':', value);
+        }
+        
+        // Показываем индикатор загрузки
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Сохранение...';
+        
+        // Отправляем AJAX-запрос
+        fetch(form.action || window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Response data:', data);
+            
+            if (data.status === 'success') {
+                // Показываем сообщение об успехе
+                showMessage(data.message, 'success');
+                
+                // Если требуется настройка 2FA, перенаправляем сразу
+                if (data.requires_2fa_setup) {
+                    console.log('Redirecting to 2FA setup:', data.redirect);
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 1000);
+                }
+                // Если есть обычный редирект, перенаправляем
+                else if (data.redirect) {
+                    console.log('Redirecting to:', data.redirect);
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 1500);
+                } else {
+                    // Закрываем форму через 1.5 секунды
+                    console.log('Closing form, redirecting to user list');
+                    setTimeout(() => {
+                        window.location.href = '{% url "accounts:user_list" %}';
+                    }, 1500);
+                }
+            } else {
+                // Показываем ошибки
+                showMessage(data.message, 'error');
+                if (data.errors) {
+                    displayFormErrors(data.errors);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            showMessage('Произошла ошибка при сохранении', 'error');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            submitButton.disabled = false;
+            submitButton.textContent = originalText;
+        });
     });
     
     // Обработка клика по крестику
@@ -211,6 +280,55 @@ document.addEventListener('DOMContentLoaded', function() {
                     e.preventDefault();
                     return false;
                 }
+            }
+        });
+    }
+    
+    // Функция для показа сообщений
+    function showMessage(message, type) {
+        // Удаляем предыдущие сообщения
+        const existingAlerts = document.querySelectorAll('.alert-message');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        // Создаем новое сообщение
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show alert-message`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Вставляем сообщение в начало формы
+        form.insertBefore(alertDiv, form.firstChild);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    // Функция для отображения ошибок формы
+    function displayFormErrors(errors) {
+        // Очищаем предыдущие ошибки
+        document.querySelectorAll('.invalid-feedback').forEach(el => {
+            el.style.display = 'none';
+        });
+        
+        // Показываем новые ошибки
+        Object.keys(errors).forEach(fieldName => {
+            const field = document.querySelector(`[name="${fieldName}"]`);
+            if (field) {
+                field.classList.add('is-invalid');
+                let errorDiv = field.parentNode.querySelector('.invalid-feedback');
+                if (!errorDiv) {
+                    errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback';
+                    field.parentNode.appendChild(errorDiv);
+                }
+                errorDiv.textContent = errors[fieldName];
+                errorDiv.style.display = 'block';
             }
         });
     }

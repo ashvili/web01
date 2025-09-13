@@ -28,7 +28,7 @@ class TOTPMiddleware:
             try:
                 if request.user.profile.totp_enabled:
                     # Проверка, прошел ли пользователь 2FA
-                    if not request.session.get('totp_verified', False):
+                    if not request.session.get('otp_verified', False):
                         # Проверяем, не находимся ли мы уже на странице ввода 2FA
                         path = request.path
                         if not any(re.match(url, path) for url in self.exempt_urls):
