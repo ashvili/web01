@@ -15,7 +15,7 @@
         <div class="card-body p-2">
             <form method="get" action="{% url 'subscribers:list' %}">
                 <div class="input-group">
-                    <input type="text" name="q" class="form-control" placeholder="{% trans 'Поиск по номеру, ФИО, адресу, IMSI...' %}" value="{{ search_query }}">
+                    <input type="text" name="q" class="form-control" placeholder="{% if user|can_view_imsi_user %}{% trans 'Поиск по номеру, ФИО, адресу, IMSI...' %}{% else %}{% trans 'Поиск по номеру, ФИО, адресу...' %}{% endif %}" value="{{ search_query }}">
                     <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> {% trans "Найти" %}</button>
                     {% if search_query %}
                         <a href="{% url 'subscribers:list' %}" class="btn btn-outline-secondary">{% trans "Сбросить" %}</a>
@@ -173,7 +173,9 @@
                     <div class="col-md-6">
                         <h6>{% trans "Дополнительная информация" %}</h6>
                         <table class="table table-sm">
+                            {% if user|can_view_imsi_user %}
                             <tr><th>{% trans "IMSI:" %}</th><td>{{ subscriber.imsi|default:"NULL" }}</td></tr>
+                            {% endif %}
                             <tr><th>{% trans "Адрес:" %}</th><td>{{ subscriber.address|default:"NULL" }}</td></tr>
                             <tr><th>{% trans "Memo1:" %}</th><td>{{ subscriber.memo1|default:"NULL" }}</td></tr>
                             <tr><th>{% trans "Memo2:" %}</th><td>{{ subscriber.memo2|default:"NULL" }}</td></tr>

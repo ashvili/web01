@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import Subscriber, ImportHistory, ImportError
+from accounts.utils import can_view_imsi
 
 # Register your models here.
 
@@ -26,6 +27,46 @@ class SubscriberAdmin(admin.ModelAdmin):
             'fields': ('original_id', 'is_active', 'import_history', 'created_at', 'updated_at')
         }),
     )
+    
+    def get_list_display(self, request):
+        """Динамически изменяет отображаемые колонки в зависимости от разрешений пользователя"""
+        list_display = list(super().get_list_display(request))
+        if not can_view_imsi(request.user):
+            # Удаляем IMSI из списка отображаемых колонок
+            if 'imsi' in list_display:
+                list_display.remove('imsi')
+        return list_display
+    
+    def get_search_fields(self, request):
+        """Динамически изменяет поля поиска в зависимости от разрешений пользователя"""
+        search_fields = list(super().get_search_fields(request))
+        if not can_view_imsi(request.user):
+            # Удаляем IMSI из полей поиска
+            if 'imsi' in search_fields:
+                search_fields.remove('imsi')
+        return search_fields
+    
+    def get_fieldsets(self, request, obj=None):
+        """Динамически изменяет поля в форме в зависимости от разрешений пользователя"""
+        fieldsets = list(super().get_fieldsets(request, obj))
+        if not can_view_imsi(request.user):
+            # Удаляем IMSI из полей формы
+            for section_name, section_data in fieldsets:
+                if 'fields' in section_data:
+                    fields = list(section_data['fields'])
+                    # Ищем и удаляем IMSI из кортежей полей
+                    new_fields = []
+                    for field_group in fields:
+                        if isinstance(field_group, tuple):
+                            # Если это кортеж полей, удаляем IMSI из него
+                            new_group = tuple(f for f in field_group if f != 'imsi')
+                            if new_group:  # Добавляем только если остались поля
+                                new_fields.append(new_group)
+                        elif field_group != 'imsi':
+                            # Если это отдельное поле и не IMSI, добавляем его
+                            new_fields.append(field_group)
+                    section_data['fields'] = tuple(new_fields)
+        return fieldsets
 
 @admin.register(ImportHistory)
 class ImportHistoryAdmin(admin.ModelAdmin):
