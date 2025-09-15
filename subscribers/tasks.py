@@ -4,6 +4,7 @@ import datetime
 import logging
 import re
 import threading
+import os
 from pathlib import Path
 from typing import Optional
 from django.conf import settings
@@ -14,7 +15,7 @@ from .models import Subscriber, ImportHistory, ImportError
 
 def _create_temp_table(temp_table_name):
     """Создает временную таблицу с той же структурой, что и основная таблица subscribers_subscriber"""
-    logger.info(f"🏗️ Создание временной таблицы: {temp_table_name}")
+    logger.info(f"[BUILD] Создание временной таблицы: {temp_table_name}")
     with connection.cursor() as cursor:
         # Создаем временную таблицу точно по структуре основной таблицы
         cursor.execute(f"""
@@ -39,12 +40,12 @@ def _create_temp_table(temp_table_name):
                 import_history_id INTEGER
             )
         """)
-    logger.info(f"✅ Временная таблица {temp_table_name} создана успешно")
+    logger.info(f"[OK] Временная таблица {temp_table_name} создана успешно")
     return temp_table_name
 
 def _insert_into_temp_table(temp_table_name, record_data):
     """Вставляет запись во временную таблицу"""
-    logger.debug(f"📥 Вставка записи ID={record_data['original_id']} в {temp_table_name}")
+    # logger.debug(f"[INSERT] Вставка записи ID={record_data['original_id']} в {temp_table_name}")
     with connection.cursor() as cursor:
         # Дополнительная защита - обрезаем все поля до максимальной длины
         safe_data = [
@@ -76,31 +77,31 @@ def _insert_into_temp_table(temp_table_name, record_data):
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """, safe_data)
-    logger.debug(f"✅ Запись ID={record_data['original_id']} вставлена в {temp_table_name}")
+    # logger.debug(f"[OK] Запись ID={record_data['original_id']} вставлена в {temp_table_name}")
 
 def _finalize_import(import_history):
     """Финализирует импорт: архивирует основную таблицу и заменяет ее данными из временной"""
     temp_table_name = import_history.temp_table_name
     archive_table_name = f"subscribers_subscriber_archive_{int(timezone.now().timestamp())}"
     
-    logger.info(f"🏁 Начинаем финализацию импорта...")
-    logger.info(f"📁 Временная таблица: {temp_table_name}")
+    logger.info(f"[FINISH] Начинаем финализацию импорта...")
+    logger.info(f"[FILE] Временная таблица: {temp_table_name}")
     logger.info(f"📦 Архивная таблица: {archive_table_name}")
     
     with connection.cursor() as cursor:
         try:
             # 1. Создаем архивную копию основной таблицы
-            logger.info("📋 Создание архивной копии основной таблицы...")
+            logger.info("[LIST] Создание архивной копии основной таблицы...")
             cursor.execute(f"""
                 CREATE TABLE {archive_table_name} AS 
                 SELECT * FROM subscribers_subscriber
             """)
-            logger.info("✅ Архивная копия создана")
+            logger.info("[OK] Архивная копия создана")
             
             # 2. Очищаем основную таблицу
-            logger.info("🗑️ Очистка основной таблицы...")
+            logger.info("[TRASH] Очистка основной таблицы...")
             cursor.execute("DELETE FROM subscribers_subscriber")
-            logger.info("✅ Основная таблица очищена")
+            logger.info("[OK] Основная таблица очищена")
             
             # 3. Копируем данные из временной таблицы в основную (без поля id - оно будет сгенерировано автоматически)
             logger.info("📤 Копирование данных из временной таблицы в основную...")
@@ -116,12 +117,12 @@ def _finalize_import(import_history):
                     gender, email, is_active, created_at, updated_at, import_history_id
                 FROM {temp_table_name}
             """)
-            logger.info("✅ Данные скопированы в основную таблицу")
+            logger.info("[OK] Данные скопированы в основную таблицу")
             
             # 4. Удаляем временную таблицу
-            logger.info("🗑️ Удаление временной таблицы...")
+            logger.info("[TRASH] Удаление временной таблицы...")
             cursor.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
-            logger.info("✅ Временная таблица удалена")
+            logger.info("[OK] Временная таблица удалена")
             
             # 5. Обновляем ImportHistory
             import_history.archive_table_name = archive_table_name
@@ -129,11 +130,11 @@ def _finalize_import(import_history):
             # Статус и фаза будут обновлены в views.py после успешной финализации
             import_history.save()
             
-            logger.info("🎉 Финализация импорта завершена успешно!")
+            logger.info("[SUCCESS] Финализация импорта завершена успешно!")
             return True
         except Exception as e:
             # В случае ошибки оставляем все как есть
-            logger.error(f"❌ Ошибка при финализации импорта: {str(e)}")
+            logger.error(f"[ERROR] Ошибка при финализации импорта: {str(e)}")
             raise Exception(f"Ошибка при финализации импорта: {str(e)}")
 
 def _cleanup_temp_table(temp_table_name):
@@ -566,7 +567,7 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
         import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
         if import_history.cancel_requested:
             # Если запрошена отмена, логируем и возвращаем текущие счетчики
-            logger.info(f"🛑 Отмена импорта обнаружена в _process_record_row для записи ID={parsed.get('original_id')}")
+            logger.info(f"[STOP] Отмена импорта обнаружена в _process_record_row для записи ID={parsed.get('original_id')}")
             return created_count, failed_count, errors
         if import_history.pause_requested:
             # Если запрошена пауза, просто возвращаем текущие счетчики
@@ -579,7 +580,7 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
             if not isinstance(parsed['birth_date'], date) and hasattr(parsed['birth_date'], 'date'):
                 parsed['birth_date'] = parsed['birth_date'].date()
 
-        logger.info(f"💾 Подготовка данных для записи: ID={parsed.get('original_id')}, номер={parsed.get('number')}")
+        # Подготовка данных для записи
 
         # Валидация длины полей перед вставкой
         validation_errors = []
@@ -606,7 +607,7 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
 
         # Логируем предупреждения о валидации
         if validation_errors:
-            logger.warning(f"⚠️ Предупреждения валидации для записи ID={parsed.get('original_id')}: {validation_errors}")
+            logger.warning(f"[WARNING] Предупреждения валидации для записи ID={parsed.get('original_id')}: {validation_errors}")
 
         # Подготавливаем данные для вставки во временную таблицу
         record_data = {
@@ -624,19 +625,17 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
             'import_history_id': import_history.id,
         }
         
-        logger.info(f"📝 Вставка во временную таблицу {import_history.temp_table_name}...")
-        
         # Вставляем во временную таблицу
         _insert_into_temp_table(import_history.temp_table_name, record_data)
         created_count += 1
         
-        logger.info(f"✅ Запись успешно сохранена во временную таблицу")
+        # Запись успешно сохранена
         
     except Exception as e:  # noqa: BLE001 - логируем и продолжаем
         failed_count += 1
         error_msg = f"Ошибка при создании записи: {str(e)}"
         errors.append(error_msg)
-        logger.error(f"❌ Ошибка сохранения записи: {error_msg}")
+        logger.error(f"[ERROR] Ошибка сохранения записи: {error_msg}")
         
         # Сохраняем исходные данные для анализа
         raw_data = f"ID: {parsed.get('original_id', 'N/A')}, Номер: {parsed.get('number', 'N/A')}, ФИО: {parsed.get('last_name', 'N/A')} {parsed.get('first_name', 'N/A')} {parsed.get('middle_name', 'N/A')}, Адрес: {parsed.get('address', 'N/A')}, Дата: {parsed.get('birth_date', 'N/A')}"
@@ -644,7 +643,7 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
         # Проверяем размер raw_data
         raw_data_size = len(raw_data)
         if raw_data_size > 4000:
-            logger.warning(f"⚠️ Большой размер raw_data в _process_record_row: {raw_data_size} символов")
+            logger.warning(f"[WARNING] Большой размер raw_data в _process_record_row: {raw_data_size} символов")
         
         ImportError.objects.create(
             import_history=import_history,
@@ -809,62 +808,62 @@ def _try_process_combined_line(combined_line, logical_row_index, delimiter, impo
         (success, actual_id) - success указывает на успех, actual_id - фактический ID записи
     """
     errors = []
-    logger.info(f"🔍 Анализ объединенной строки для записи {logical_row_index}...")
+    # Анализ строки {logical_row_index}
     
     try:
         # Пытаемся распарсить объединенную строку
-        logger.info(f"📝 Парсинг CSV: {combined_line[:200]}...")
+        # Парсинг CSV строки
         row_values = _try_parse_csv_line(combined_line, delimiter)
         if not row_values:
-            logger.error(f"❌ Не удалось распарсить как CSV")
+            logger.error(f"[ERROR] Не удалось распарсить как CSV")
             return False, None
         
-        logger.info(f"✅ CSV распарсен: {len(row_values)} полей")
+        # CSV распарсен
         
         # Проверяем, что есть достаточно полей
         if len(row_values) < 8:
-            logger.error(f"❌ Недостаточно полей: {len(row_values)} < 8")
+            logger.error(f"[ERROR] Недостаточно полей: {len(row_values)} < 8")
             return False, None
         
-        logger.info(f"✅ Количество полей OK: {len(row_values)}")
+        # Количество полей OK
         
         # Получаем фактический ID
         actual_id = None
         if row_values[0] and row_values[0].strip():
             try:
                 actual_id = int(row_values[0].strip())
-                logger.info(f"✅ ID извлечен: {actual_id}")
+                # ID извлечен
             except ValueError:
-                logger.error(f"❌ Не удалось преобразовать ID в число: '{row_values[0]}'")
+                logger.error(f"[ERROR] Не удалось преобразовать ID в число: '{row_values[0]}'")
                 return False, None
         
         # Парсим запись
-        logger.info(f"🔍 Парсинг полей записи...")
+        # Парсинг полей
         parsed = _parse_line_to_record(row_values, logical_row_index, errors)
         if not parsed:
-            logger.error(f"❌ Не удалось распарсить поля записи ❌ Запись {logical_row_index} не удалось обработать")
-            logger.error(f"📝 Проблемная строка: {combined_line}")
-            logger.error(f"📊 Распарсенные поля: {row_values}")
+            logger.error(f"[ERROR] Не удалось распарсить поля записи [ERROR] Запись {logical_row_index} не удалось обработать")
+            logger.error(f"[INFO] Проблемная строка: {combined_line}")
+            logger.error(f"[STATS] Распарсенные поля: {row_values}")
             return False, None
         
-        logger.info(f"✅ Поля записи распарсены: {list(parsed.keys())}")
+        # Поля записи распарсены
         
         # Пытаемся сохранить запись
         try:
-            logger.info(f"💾 Сохранение записи во временную таблицу...")
+            # Сохранение записи
             created_count, failed_count, errors = _process_record_row(parsed, import_history, (0, 0, errors))
             if failed_count == 0:
-                logger.info(f"✅ Запись успешно сохранена во временную таблицу")
+                # Запись успешно сохранена
                 return True, actual_id
             else:
-                logger.error(f"❌ Ошибка при сохранении записи: {errors}")
+                logger.error(f"[ERROR] Ошибка при сохранении записи: {errors}")
                 return False, actual_id
         except Exception as e:
-            logger.error(f"❌ Исключение при сохранении записи: {str(e)}")
+            logger.error(f"[ERROR] Исключение при сохранении записи: {str(e)}")
             return False, actual_id
             
     except Exception as e:
-        logger.error(f"❌ Непредвиденная ошибка в _try_process_combined_line: {str(e)}")
+        logger.error(f"[ERROR] Непредвиденная ошибка в _try_process_combined_line: {str(e)}")
         return False, None
 
 def _parse_line_to_record(row_values, row_count, errors):
@@ -972,9 +971,9 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
         file_size = file_path.stat().st_size
         total_lines = len(all_lines)
         
-        logger.info(f"📁 Файл прочитан: {len(all_lines)} строк, размер: {file_size} байт")
-        logger.info(f"📊 Настройки: delimiter='{delimiter}', encoding='{encoding}', has_header={has_header}")
-        logger.info(f"🚀 Начинаем обработку с позиции {processed_rows_start}")
+        # Файл прочитан
+        # Настройки: delimiter='{delimiter}', encoding='{encoding}', has_header={has_header}
+        # Начинаем обработку с позиции {processed_rows_start}
         
         physical_line_idx = 0
         i = 0
@@ -988,7 +987,7 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 # Частая проверка отмены
                 import_history.refresh_from_db(fields=['cancel_requested'])
                 if import_history.cancel_requested:
-                    logger.info(f"🛑 Импорт {import_history.id} отменен пользователем во время обработки")
+                    logger.info(f"[STOP] Импорт {import_history.id} отменен пользователем во время обработки")
                     import_history.status = 'cancelled'
                     import_history.stop_reason = 'Отмена пользователем'
                     import_history.phase = 'cancelled'
@@ -1002,7 +1001,7 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
             import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
             
             if import_history.cancel_requested:
-                logger.info(f"🛑 Импорт {import_history.id} отменен пользователем")
+                logger.info(f"[STOP] Импорт {import_history.id} отменен пользователем")
                 import_history.status = 'cancelled'
                 import_history.stop_reason = 'Отмена пользователем'
                 import_history.phase = 'cancelled'
@@ -1021,7 +1020,7 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 while True:
                     import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
                     if import_history.cancel_requested:
-                        logger.info(f"🛑 Импорт {import_history.id} отменен во время паузы")
+                        logger.info(f"[STOP] Импорт {import_history.id} отменен во время паузы")
                         import_history.status = 'cancelled'
                         import_history.stop_reason = 'Отмена пользователем'
                         import_history.phase = 'cancelled'
@@ -1056,14 +1055,13 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
             is_current_valid = _is_valid_line(current_line, delimiter)
             
             # ОТЛАДКА: Показываем текущую обрабатываемую строку
-            logger.info(f"=== ОБРАБОТКА СТРОКИ {physical_line_idx} ===")
-            logger.info(f"Текущая строка: {current_line[:200]}...")
-            logger.info(f"Валидна: {is_current_valid}")
+            # === ОБРАБОТКА СТРОКИ {physical_line_idx} ===
+            # Обработка строки {physical_line_idx}, валидна: {is_current_valid}
             
             if is_current_valid:
                 # Текущая строка валидная - сохраняем как последнюю валидную
                 last_valid_line = current_line
-                logger.info(f"✅ Начинаем обработку валидной строки")
+                # Начинаем обработку валидной строки
                 
                 # Смотрим следующие строки для склеивания
                 combined_line = current_line
@@ -1083,31 +1081,31 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                     
                     is_next_valid = _is_valid_line(next_line, delimiter)
                     
-                    logger.info(f"  Следующая строка {j}: Валидна={is_next_valid}")
-                    logger.info(f"  Содержимое: {next_line[:150]}...")
+                    # Проверка следующей строки
+                    # Следующая строка {j}
                     
                     if is_next_valid:
                         # Следующая строка валидная - прекращаем склеивание
                         next_valid_line = next_line
                         next_valid_line_index = j
-                        logger.info(f"  🛑 Следующая строка валидна - прекращаем склеивание")
+                        # Следующая строка валидна - прекращаем склеивание
                         break
                     else:
                         # Следующая строка не валидная - добавляем к текущей
                         # Очищаем объединенную строку от лишних пробелов
                         combined_line = _clean_line_for_combining(combined_line + " " + next_line)
                         lines_to_combine.append(next_line)
-                        logger.info(f"  🔗 Склеиваем строку {j}: {next_line[:100]}...")
-                        logger.info(f"  📝 Объединенная строка: {combined_line[:200]}...")
+                        # Склеиваем строку {j}
+                        # Объединенная строка обработана
                         j += 1
                 
-                logger.info(f"📊 Итоговое объединение: {len(lines_to_combine)} строк")
-                logger.info(f"📝 Финальная строка: {combined_line[:300]}...")
+                # Итоговое объединение: {len(lines_to_combine)} строк
+                # Финальная строка обработана
                 
                 # Пытаемся обработать объединенную строку
                 logical_row_index += 1
                 if logical_row_index > processed_rows_start:
-                    logger.info(f"🔄 Пытаемся обработать запись {logical_row_index}...")
+                    # Обработка записи {logical_row_index}
                     
                     success, actual_id = _try_process_combined_line(
                         combined_line, logical_row_index, delimiter, import_history
@@ -1115,10 +1113,10 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                     
                     if success:
                         created_count += 1
-                        logger.info(f"✅ Запись {logical_row_index} успешно обработана!")
+                        # Запись {logical_row_index} успешно обработана
                     else:
                         failed_count += 1
-                        logger.error(f"❌ Запись {logical_row_index} не удалось обработать")
+                        logger.error(f"[ERROR] Запись {logical_row_index} не удалось обработать")
                         
                         # Записываем ошибку с подробными исходными данными
                         raw_data_lines = []
@@ -1155,14 +1153,14 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                         raw_data_size = len(final_raw_data)
                         
                         # Логируем размер данных для отладки
-                        logger.info(f"📊 Размер raw_data для ошибки: {raw_data_size} символов")
+                        logger.info(f"[STATS] Размер raw_data для ошибки: {raw_data_size} символов")
                         if raw_data_size > 4000:
-                            logger.warning(f"⚠️ Большой размер raw_data: {raw_data_size} символов (близко к лимиту 5000)")
+                            logger.warning(f"[WARNING] Большой размер raw_data: {raw_data_size} символов (близко к лимиту 5000)")
                         
                         # Обрезаем до лимита, если необходимо
                         if raw_data_size > 5000:
                             final_raw_data = final_raw_data[:5000]
-                            logger.warning(f"⚠️ raw_data обрезан с {raw_data_size} до 5000 символов")
+                            logger.warning(f"[WARNING] raw_data обрезан с {raw_data_size} до 5000 символов")
                         
                         ImportError.objects.create(
                             import_history=import_history,
@@ -1192,21 +1190,21 @@ def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_he
                 if next_valid_line_index is not None:
                     # У нас есть следующая валидная строка - переходим к ней
                     i = next_valid_line_index
-                    logger.info(f"🔄 Переходим к валидной строке {i}: {next_valid_line[:100]}...")
+                    # Переходим к валидной строке {i}
                 else:
                     # Достигли конца файла - переходим к j (конец файла)
                     i = j
-                    logger.info(f"🔄 Достигли конца файла, переходим к позиции {i}")
+                    # Достигли конца файла, переходим к позиции {i}
                 
-                logger.info("=" * 80)
+                # ================================================
             else:
                 # Текущая строка не валидная - пропускаем (такого не должно быть при правильной логике)
-                logger.warning(f"⚠️ Строка {physical_line_idx} не валидна - пропускаем")
+                logger.warning(f"[WARNING] Строка {physical_line_idx} не валидна - пропускаем")
                 i += 1
     
-    logger.info(f"🏁 Обработка завершена!")
-    logger.info(f"📊 Итоги: создано={created_count}, ошибок={failed_count}, обработано строк={logical_row_index}")
-    logger.info("=" * 80)
+    # Обработка завершена
+    logger.info(f"[STATS] Итоги: создано={created_count}, ошибок={failed_count}, обработано строк={logical_row_index}")
+    # ================================================
     
     return created_count, failed_count, logical_row_index
 
@@ -1271,110 +1269,102 @@ def _process_single_csv_record(line, logical_row_index, delimiter, import_histor
     return created_count, failed_count, actual_id
 
 def process_csv_import_stream(import_history_id: int) -> None:
-    """Потоковый импорт с возможностью резюме по ImportHistory.processed_rows."""
-    import_history = ImportHistory.objects.get(id=import_history_id)
-    logger.info(f"🚀 Запуск потокового импорта {import_history_id}")
-    logger.info(f"📊 Текущий статус: {import_history.status}")
-    logger.info(f"📁 Файл: {import_history.uploaded_file}")
-    
-    # Если импорт был в паузе, продолжаем с того места, где остановились
-    if import_history.status == 'paused':
-        logger.info(f"⏸️ Возобновляем импорт {import_history_id} с позиции {import_history.processed_rows}")
-        import_history.status = 'processing'
-        import_history.phase = 'processing'
-    else:
-        logger.info(f"🆕 Новый импорт - инициализация...")
-        import_history.status = 'processing'
-        import_history.phase = 'initializing'
-    
-    import_history.save()
-
-    # Путь к загруженному файлу
-    if not import_history.uploaded_file:
-        import_history.status = 'failed'
-        import_history.error_message = 'Не найден загруженный файл для импорта'
+    try:
+        """Потоковый импорт с возможностью резюме по ImportHistory.processed_rows."""
+        import_history = ImportHistory.objects.get(id=import_history_id)
+        logger.info(f"[START] Запуск потокового импорта {import_history_id}")
+        logger.info(f"[STATS] Текущий статус: {import_history.status}")
+        logger.info(f"[FILE] Файл: {import_history.uploaded_file}")
+        
+        # Если импорт был в паузе, продолжаем с того места, где остановились
+        if import_history.status == 'paused':
+            logger.info(f"[PAUSE] Возобновляем импорт {import_history_id} с позиции {import_history.processed_rows}")
+            import_history.status = 'processing'
+            import_history.phase = 'processing'
+        else:
+            logger.info(f"[NEW] Новый импорт - инициализация...")
+            import_history.status = 'processing'
+            import_history.phase = 'initializing'
+        
         import_history.save()
-        return
 
-    file_path = Path(import_history.uploaded_file.path)
-    delimiter = import_history.delimiter
-    encoding = import_history.encoding or 'utf-8'
-    has_header = import_history.has_header
-
-    # Инициализируем прогресс
-    import_history.records_count = 0  # Будем считать по мере обработки
-    import_history.progress_percent = 0
-    import_history.save()
-
-    # Создаем временную таблицу один раз
-    if not import_history.temp_table_name:
-        try:
-            logger.info("🏗️ Создание временной таблицы для импорта...")
-            import_history.phase = 'creating_temp_table'
-            import_history.save()
-            
-            # Проверяем отмену перед созданием временной таблицы
-            import_history.refresh_from_db(fields=['cancel_requested'])
-            if import_history.cancel_requested:
-                logger.info(f"🛑 Импорт {import_history_id} отменен пользователем на этапе создания временной таблицы")
-                import_history.status = 'cancelled'
-                import_history.phase = 'cancelled'
-                import_history.stop_reason = 'Отмена пользователем'
-                import_history.progress_percent = 0
-                import_history.save()
-                return
-            
-            temp_table_name = f"subscribers_subscriber_temp_{int(timezone.now().timestamp())}"
-            _create_temp_table(temp_table_name)
-            import_history.temp_table_name = temp_table_name
-            import_history.save()
-            logger.info(f"✅ Временная таблица {temp_table_name} готова к использованию")
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"❌ Ошибка при создании временной таблицы: {str(e)}")
+        # Путь к загруженному файлу
+        if not import_history.uploaded_file:
             import_history.status = 'failed'
-            import_history.error_message = f"Ошибка при создании временной таблицы: {str(e)}"
+            import_history.error_message = 'Не найден загруженный файл для импорта'
+            import_history.save()
+            return
+        
+        file_path = Path(import_history.uploaded_file.path)
+
+        # Проверяем существование файла
+        if not file_path.exists():
+            logger.error(f"[ERROR] Файл не найден: {file_path}")
+            import_history.status = 'failed'
+            import_history.error_message = f'Файл не найден: {file_path}'
             import_history.save()
             return
 
-    id_pattern = re.compile(r'^\s*\d+')
-    processed_rows_start = import_history.processed_rows or 0
+        # Проверяем права доступа к файлу
+        if not os.access(file_path, os.R_OK):
+            logger.error(f"[ERROR] Нет прав на чтение файла: {file_path}")
+            import_history.status = 'failed'
+            import_history.error_message = f'Нет прав на чтение файла: {file_path}'
+            import_history.save()
+            return
 
-    created_count = import_history.records_created or 0
-    failed_count = import_history.records_failed or 0
-    errors: list[str] = []
+        logger.info(f"[OK] Файл найден и доступен: {file_path}")            
 
-    # Проверяем отмену перед началом обработки
-    import_history.refresh_from_db(fields=['cancel_requested'])
-    if import_history.cancel_requested:
-        logger.info(f"🛑 Импорт {import_history_id} отменен пользователем перед началом обработки")
-        import_history.status = 'cancelled'
-        import_history.phase = 'cancelled'
-        import_history.stop_reason = 'Отмена пользователем'
+        delimiter = import_history.delimiter
+        encoding = import_history.encoding or 'utf-8'
+        has_header = import_history.has_header
+
+        # Инициализируем прогресс
+        import_history.records_count = 0  # Будем считать по мере обработки
         import_history.progress_percent = 0
         import_history.save()
-        # Очищаем временную таблицу при отмене
-        _cleanup_temp_table(import_history.temp_table_name)
-        return
 
-    # Используем новую логику с умным склеиванием строк
-    try:
-        created_count, failed_count, logical_row_index = _process_csv_lines_with_smart_joining(
-            file_path, delimiter, encoding, has_header, import_history, processed_rows_start
-        )
-        
-        # Обновляем финальную статистику
-        import_history.processed_rows = logical_row_index
-        import_history.records_created = created_count
-        import_history.records_failed = failed_count
-        
-        # Финальное обновление счетчиков
-        import_history.records_count = logical_row_index
-        import_history.progress_percent = 100
-        
-        # Проверяем, не был ли импорт отменен
+        # Создаем временную таблицу один раз
+        if not import_history.temp_table_name:
+            try:
+                logger.info("[BUILD] Создание временной таблицы для импорта...")
+                import_history.phase = 'creating_temp_table'
+                import_history.save()
+                
+                # Проверяем отмену перед созданием временной таблицы
+                import_history.refresh_from_db(fields=['cancel_requested'])
+                if import_history.cancel_requested:
+                    logger.info(f"[STOP] Импорт {import_history_id} отменен пользователем на этапе создания временной таблицы")
+                    import_history.status = 'cancelled'
+                    import_history.phase = 'cancelled'
+                    import_history.stop_reason = 'Отмена пользователем'
+                    import_history.progress_percent = 0
+                    import_history.save()
+                    return
+                
+                temp_table_name = f"subscribers_subscriber_temp_{int(timezone.now().timestamp())}"
+                _create_temp_table(temp_table_name)
+                import_history.temp_table_name = temp_table_name
+                import_history.save()
+                logger.info(f"[OK] Временная таблица {temp_table_name} готова к использованию")
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"[ERROR] Ошибка при создании временной таблицы: {str(e)}")
+                import_history.status = 'failed'
+                import_history.error_message = f"Ошибка при создании временной таблицы: {str(e)}"
+                import_history.save()
+                return
+
+        id_pattern = re.compile(r'^\s*\d+')
+        processed_rows_start = import_history.processed_rows or 0
+
+        created_count = import_history.records_created or 0
+        failed_count = import_history.records_failed or 0
+        errors: list[str] = []
+
+        # Проверяем отмену перед началом обработки
         import_history.refresh_from_db(fields=['cancel_requested'])
         if import_history.cancel_requested:
-            logger.info(f"🛑 Импорт {import_history_id} был отменен пользователем после обработки")
+            logger.info(f"[STOP] Импорт {import_history_id} отменен пользователем перед началом обработки")
             import_history.status = 'cancelled'
             import_history.phase = 'cancelled'
             import_history.stop_reason = 'Отмена пользователем'
@@ -1383,36 +1373,79 @@ def process_csv_import_stream(import_history_id: int) -> None:
             # Очищаем временную таблицу при отмене
             _cleanup_temp_table(import_history.temp_table_name)
             return
-        
-        # Завершение импорта во временную таблицу (без финализации)
-        import_history.status = 'temp_completed'
-        import_history.phase = 'waiting_finalization'  # Сокращаем до 18 символов
-        import_history.progress_percent = 100
-        if errors:
-            msg = "\n".join(errors[:20])
-            if len(errors) > 20:
-                msg += f"\n... ещё {len(errors) - 20} ошибок"
-            import_history.error_message = msg
-        import_history.save()
-        logger.info("🎉 Импорт во временную таблицу успешно завершен! Ожидаем команду на финализацию.")
-    except Exception as e:
-        logger.error(f"❌ Непредвиденная ошибка в процессе импорта: {str(e)}")
-        import_history.status = 'failed'
-        import_history.error_message = f"Непредвиденная ошибка: {str(e)}"
-        import_history.save()
-        # Очищаем временную таблицу при ошибке
-        _cleanup_temp_table(import_history.temp_table_name)
-    finally:
-        # Убеждаемся, что временная таблица очищена при любом завершении
-        if import_history.temp_table_name and import_history.status in ['failed', 'cancelled']:
-            logger.info(f"🧹 Очистка временной таблицы {import_history.temp_table_name}")
+
+        # Используем новую логику с умным склеиванием строк
+        try:
+            created_count, failed_count, logical_row_index = _process_csv_lines_with_smart_joining(
+                file_path, delimiter, encoding, has_header, import_history, processed_rows_start
+            )
+            
+            # Обновляем финальную статистику
+            import_history.processed_rows = logical_row_index
+            import_history.records_created = created_count
+            import_history.records_failed = failed_count
+            
+            # Финальное обновление счетчиков
+            import_history.records_count = logical_row_index
+            import_history.progress_percent = 100
+            
+            # Проверяем, не был ли импорт отменен
+            import_history.refresh_from_db(fields=['cancel_requested'])
+            if import_history.cancel_requested:
+                logger.info(f"[STOP] Импорт {import_history_id} был отменен пользователем после обработки")
+                import_history.status = 'cancelled'
+                import_history.phase = 'cancelled'
+                import_history.stop_reason = 'Отмена пользователем'
+                import_history.progress_percent = 0
+                import_history.save()
+                # Очищаем временную таблицу при отмене
+                _cleanup_temp_table(import_history.temp_table_name)
+                return
+            
+            # Завершение импорта во временную таблицу (без финализации)
+            import_history.status = 'temp_completed'
+            import_history.phase = 'waiting_finalization'  # Сокращаем до 18 символов
+            import_history.progress_percent = 100
+            if errors:
+                msg = "\n".join(errors[:20])
+                if len(errors) > 20:
+                    msg += f"\n... ещё {len(errors) - 20} ошибок"
+                import_history.error_message = msg
+            import_history.save()
+            logger.info("[SUCCESS] Импорт во временную таблицу успешно завершен! Ожидаем команду на финализацию.")
+        except Exception as e:
+            logger.error(f"[ERROR] Непредвиденная ошибка в процессе импорта: {str(e)}")
+            import_history.status = 'failed'
+            import_history.error_message = f"Непредвиденная ошибка: {str(e)}"
+            import_history.save()
+            # Очищаем временную таблицу при ошибке
             _cleanup_temp_table(import_history.temp_table_name)
-        elif import_history.temp_table_name and import_history.status == 'temp_completed':
-            # Если импорт завершен успешно, но не финализирован, оставляем временную таблицу
-            logger.info(f"📁 Временная таблица {import_history.temp_table_name} сохранена для финализации")
+        finally:
+            # Убеждаемся, что временная таблица очищена при любом завершении
+            if import_history.temp_table_name and import_history.status in ['failed', 'cancelled']:
+                logger.info(f"[CLEAN] Очистка временной таблицы {import_history.temp_table_name}")
+                _cleanup_temp_table(import_history.temp_table_name)
+            elif import_history.temp_table_name and import_history.status == 'temp_completed':
+                # Если импорт завершен успешно, но не финализирован, оставляем временную таблицу
+                logger.info(f"[FILE] Временная таблица {import_history.temp_table_name} сохранена для финализации")
+            
+            _RUNNING_IMPORTS.pop(import_history_id, None)
+            logger.info(f"[FINISH] Импорт {import_history_id} завершен. Статус: {import_history.status}")
+    
+    except Exception as e:
+        logger.error(f"[ERROR] Критическая ошибка в process_csv_import_stream: {str(e)}")
+        logger.error(f"[ERROR] Тип ошибки: {type(e).__name__}")
+        import traceback
+        logger.error(f"[ERROR] Трассировка: {traceback.format_exc()}")
         
-        _RUNNING_IMPORTS.pop(import_history_id, None)
-        logger.info(f"🏁 Импорт {import_history_id} завершен. Статус: {import_history.status}")
+        # Обновляем статус импорта
+        try:
+            import_history = ImportHistory.objects.get(id=import_history_id)
+            import_history.status = 'failed'
+            import_history.error_message = f"Критическая ошибка: {str(e)}"
+            import_history.save()
+        except:
+            pass        
 
 def start_import_async(import_history_id: int) -> bool:
     """Стартует фоновый импорт, если он ещё не идёт. Возвращает True, если стартовали сейчас."""
@@ -1496,12 +1529,12 @@ def cleanup_old_archive_tables(keep_count=3):
             """)
             archive_tables = [row[0] for row in cursor.fetchall()]
             
-            logger.info(f"🔍 Найдено архивных таблиц: {len(archive_tables)}")
+            logger.info(f"[SEARCH] Найдено архивных таблиц: {len(archive_tables)}")
             if archive_tables:
-                logger.info(f"📋 Список архивных таблиц: {archive_tables}")
+                logger.info(f"[LIST] Список архивных таблиц: {archive_tables}")
             
             if len(archive_tables) <= keep_count:
-                logger.info(f"✅ Все {len(archive_tables)} архивных таблиц сохранены (лимит: {keep_count})")
+                logger.info(f"[OK] Все {len(archive_tables)} архивных таблиц сохранены (лимит: {keep_count})")
                 return {
                     "success": True,
                     "total_kept": len(archive_tables),
@@ -1513,14 +1546,14 @@ def cleanup_old_archive_tables(keep_count=3):
             tables_to_keep = archive_tables[:keep_count]
             tables_to_delete = archive_tables[keep_count:]
             
-            logger.info(f"💾 Таблицы для сохранения: {tables_to_keep}")
-            logger.info(f"🗑️ Таблицы для удаления: {tables_to_delete}")
+            logger.info(f"[SAVE] Таблицы для сохранения: {tables_to_keep}")
+            logger.info(f"[TRASH] Таблицы для удаления: {tables_to_delete}")
             
             # Удаляем устаревшие таблицы
             deleted_count = 0
             for table in tables_to_delete:
                 try:
-                    logger.info(f"🗑️ Удаляем таблицу: {table}")
+                    logger.info(f"[TRASH] Удаляем таблицу: {table}")
                     cursor.execute(f"DROP TABLE IF EXISTS {table}")
                     
                     # Проверяем, что таблица действительно удалена
@@ -1531,15 +1564,15 @@ def cleanup_old_archive_tables(keep_count=3):
                     """, [table])
                     
                     if cursor.fetchone()[0] == 0:
-                        logger.info(f"✅ Таблица {table} успешно удалена")
+                        logger.info(f"[OK] Таблица {table} успешно удалена")
                         deleted_count += 1
                     else:
-                        logger.warning(f"⚠️ Таблица {table} не была удалена")
+                        logger.warning(f"[WARNING] Таблица {table} не была удалена")
                         
                 except Exception as table_error:
-                    logger.error(f"❌ Ошибка при удалении таблицы {table}: {str(table_error)}")
+                    logger.error(f"[ERROR] Ошибка при удалении таблицы {table}: {str(table_error)}")
             
-            logger.info(f"🏁 Очистка завершена. Сохранено: {len(tables_to_keep)}, удалено: {deleted_count}")
+            logger.info(f"[FINISH] Очистка завершена. Сохранено: {len(tables_to_keep)}, удалено: {deleted_count}")
             
             return {
                 "success": True,
@@ -1549,7 +1582,7 @@ def cleanup_old_archive_tables(keep_count=3):
             }
             
     except Exception as e:
-        logger.error(f"❌ Ошибка при очистке старых архивных таблиц: {str(e)}")
+        logger.error(f"[ERROR] Ошибка при очистке старых архивных таблиц: {str(e)}")
         return {
             "success": False,
             "error": str(e)
@@ -1623,7 +1656,7 @@ def list_archive_tables():
             return result
             
     except Exception as e:
-        logger.error(f"❌ Ошибка при получении списка архивных таблиц: {str(e)}")
+        logger.error(f"[ERROR] Ошибка при получении списка архивных таблиц: {str(e)}")
         return {
             "success": False,
             "error": str(e)
