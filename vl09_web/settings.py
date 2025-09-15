@@ -133,6 +133,13 @@ LOCALE_PATHS = [
     BASE_DIR / 'locale',
 ]
 
+# Настройки для работы с большими файлами
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# Настройки для Gunicorn (если используется)
+GUNICORN_TIMEOUT = 300
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

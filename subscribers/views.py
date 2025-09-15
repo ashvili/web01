@@ -192,8 +192,17 @@ def import_csv_async(request):
             )
             
             # Сохраняем файл асинхронно
-            import_history.uploaded_file = csv_file
-            import_history.save()
+            try:
+                # Сохраняем файл с обработкой ошибок
+                import_history.uploaded_file = csv_file
+                import_history.save()
+            except Exception as e:
+                # Логируем ошибку и удаляем запись
+                import_history.delete()
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Ошибка сохранения файла: {str(e)}'
+                })
 
             # ЯВНОЕ ЛОГИРОВАНИЕ ИМПОРТА (async)
             try:
