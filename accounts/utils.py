@@ -119,13 +119,12 @@ def can_view_imsi(user):
     Returns:
         bool: True, если пользователь может видеть поле IMSI
     """
-    if user.is_superuser:
-        return True
-    
+    # Сначала проверяем user_type, даже для суперпользователей
     if hasattr(user, "profile"):
         return user.profile.user_type != 2
     
-    return False
+    # Если нет профиля, то только суперпользователи могут видеть IMSI
+    return user.is_superuser
 
 def user_has_permission(user, permission_codename):
     """
