@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -192,6 +193,23 @@ USER_ACTION_LOG_RETENTION_DAYS = 90  # Сколько дней храним ло
 
 
 # Добавьте в конец settings.py
+# Путь к файлу логов ошибок задаётся переменной окружения ERROR_LOG_FILE
+# Если не задана — используем BASE_DIR/logs/errors.log
+ERROR_LOG_FILE = os.environ.get('ERROR_LOG_FILE')
+if not ERROR_LOG_FILE:
+    ERROR_LOG_FILE = str(BASE_DIR / 'logfiles' / 'errors.log')
+elif not os.path.isabs(ERROR_LOG_FILE):
+    # Разрешаем относительный путь относительно BASE_DIR
+    ERROR_LOG_FILE = str((BASE_DIR / ERROR_LOG_FILE).resolve())
+
+# Гарантируем существование каталога для файла логов (не падаем, если не удалось)
+_error_dir = os.path.dirname(ERROR_LOG_FILE)
+if _error_dir:
+    try:
+        os.makedirs(_error_dir, exist_ok=True)
+    except Exception:
+        pass
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -204,6 +222,10 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'error': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {pathname}:{lineno} {funcName}() {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'file': {
@@ -211,6 +233,14 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': 'logs/django.log',
             'formatter': 'verbose',
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': ERROR_LOG_FILE,
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'error',
         },
         'console': {
             'level': 'DEBUG',
@@ -227,7 +257,23 @@ LOGGING = {
         'django': {
             'handlers': ['file', 'console'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,
         },
+        'django.request': {
+            'handlers': ['error_file', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['error_file', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+    # Все сообщения ERROR и выше, которые всплывут до корневого логгера,
+    # будут записаны в файл ошибок
+    'root': {
+        'handlers': ['error_file'],
+        'level': 'ERROR',
     },
 }
