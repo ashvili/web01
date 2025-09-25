@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% trans "Поиск и просмотр абонентов" %}{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/bootstrap-icons/font/bootstrap-icons.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link rel="stylesheet" href="{% static 'css/custom-icons.css' %}">
     {% block extra_css %}{% endblock %}
@@ -35,7 +35,7 @@
                         <!-- Пункт меню для логов (видим только для администраторов) -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">
-                                <i class="fas fa-history"></i> {% trans "Логи действий" %}
+                                <i class="bi bi-clock-history"></i> {% trans "Логи действий" %}
                             </a>
                         </li>
                         {% endif %}
@@ -47,11 +47,11 @@
                             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 {% get_current_language as LANGUAGE_CODE %}
                                 {% if LANGUAGE_CODE == 'ru' %}
-                                    <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-1" style="width: 20px; height: 15px;">
+                                    <img src="{% static 'img/flags/ru.png' %}" alt="RU" class="me-1" style="width: 20px; height: 15px;">
                                 {% elif LANGUAGE_CODE == 'tk' %}
-                                    <img src="https://flagcdn.com/w20/tm.png" alt="TM" class="me-1" style="width: 20px; height: 15px;">
+                                    <img src="{% static 'img/flags/tm.png' %}" alt="TM" class="me-1" style="width: 20px; height: 15px;">
                                 {% else %}
-                                    <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-1" style="width: 20px; height: 15px;">
+                                    <img src="{% static 'img/flags/ru.png' %}" alt="RU" class="me-1" style="width: 20px; height: 15px;">
                                 {% endif %}
                             </a>
                             <ul class="dropdown-menu">
@@ -61,7 +61,7 @@
                                         <input type="hidden" name="language" value="ru">
                                         <input type="hidden" name="next" value="{% switch_language_url 'ru' %}">
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
-                                            <img src="https://flagcdn.com/w20/ru.png" alt="RU" class="me-2" style="width: 20px; height: 15px;">
+                                            <img src="{% static 'img/flags/ru.png' %}" alt="RU" class="me-2" style="width: 20px; height: 15px;">
                                             <span>Русский</span>
                                         </button>
                                     </form>
@@ -72,7 +72,7 @@
                                         <input type="hidden" name="language" value="tk">
                                         <input type="hidden" name="next" value="{% switch_language_url 'tk' %}">
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
-                                            <img src="https://flagcdn.com/w20/tm.png" alt="TM" class="me-2" style="width: 20px; height: 15px;">
+                                            <img src="{% static 'img/flags/tm.png' %}" alt="TM" class="me-2" style="width: 20px; height: 15px;">
                                             <span>Türkmen</span>
                                         </button>
                                     </form>
@@ -127,7 +127,7 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'js/main.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
