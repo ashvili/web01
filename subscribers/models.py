@@ -15,9 +15,9 @@ class Subscriber(models.Model):
     # Поля из CSV-файла
     original_id = models.PositiveIntegerField(_('Оригинальный ID'), null=True, blank=True)
     number = models.CharField(_('Номер'), max_length=20, unique=True, default='')
-    last_name = models.CharField(_('Фамилия'), max_length=100)
-    first_name = models.CharField(_('Имя'), max_length=100)
-    middle_name = models.CharField(_('Отчество'), max_length=100, blank=True, null=True)
+    last_name = models.CharField(_('Фамилия'), max_length=255, blank=True, null=True)
+    first_name = models.CharField(_('Имя'), max_length=255, blank=True, null=True)
+    middle_name = models.CharField(_('Отчество'), max_length=255, blank=True, null=True)
     address = models.TextField(_('Адрес'), blank=True, null=True)
     memo1 = models.CharField('Memo1', max_length=255, blank=True, null=True)
     memo2 = models.CharField('Memo2', max_length=255, blank=True, null=True)

@@ -40,13 +40,7 @@ class CSVImportForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     
-    has_header = forms.BooleanField(
-        label=_('Первая строка содержит заголовки'),
-        initial=True,
-        required=False,
-        help_text=_('Отметьте, если первая строка файла содержит названия колонок'),
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
-    )
+    # has_header убран - теперь всегда пропускаем первую строку если она невалидна
     
 
 class SearchForm(forms.Form):

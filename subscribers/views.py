@@ -78,6 +78,20 @@ def subscriber_list(request):
 @user_passes_test(is_admin, login_url='subscribers:search')
 def import_csv(request):
     """Представление для импорта данных из CSV-файла (только для администраторов)"""
+    # Проверяем, есть ли параметр import_id для показа деталей существующего импорта
+    import_id = request.GET.get('import_id')
+    if import_id:
+        try:
+            import_history = ImportHistory.objects.get(id=import_id)
+            form = CSVImportForm()
+            return render(request, 'subscribers/import_csv.html', {
+                'form': form,
+                'import_id': import_history.id,
+                'show_progress': True
+            })
+        except ImportHistory.DoesNotExist:
+            messages.error(request, 'Импорт не найден')
+    
     if request.method == 'POST':
         form = CSVImportForm(request.POST, request.FILES)
         if form.is_valid():
@@ -86,7 +100,7 @@ def import_csv(request):
                 csv_file = request.FILES['csv_file']
                 delimiter = form.cleaned_data['delimiter']
                 encoding = form.cleaned_data['encoding']
-                has_header = form.cleaned_data['has_header']
+                # has_header убран - теперь всегда пропускаем первую строку если она невалидна
                 
                 # Проверяем, что это действительно CSV файл
                 if not csv_file.name.lower().endswith('.csv'):
@@ -105,7 +119,7 @@ def import_csv(request):
                     file_size=csv_file.size,
                     delimiter=delimiter,
                     encoding=encoding,
-                    has_header=has_header,
+                    has_header=False,  # Всегда False - первая строка пропускается автоматически если невалидна
                     created_by=request.user,
                     status='pending',
                     phase='pending',
@@ -126,7 +140,7 @@ def import_csv(request):
                             'file_size': csv_file.size,
                             'delimiter': delimiter,
                             'encoding': encoding,
-                            'has_header': has_header,
+                            'has_header': False,  # Всегда False - первая строка пропускается автоматически если невалидна
                             'mode': 'sync-init'
                         }
                     )
@@ -136,10 +150,17 @@ def import_csv(request):
                 # Стартуем асинхронный импорт
                 started_now = start_import_async(import_history.id)
                 if started_now:
-                    messages.info(request, 'Импорт запущен в фоне. Можно следить за прогрессом.')
+                    messages.success(request, 'Импорт запущен в фоне. Можно следить за прогрессом.')
                 else:
                     messages.info(request, 'Импорт уже выполняется.')
-                return redirect('subscribers:import_detail', import_id=import_history.id)
+                
+                # Возвращаемся на форму загрузки с информацией об импорте
+                form = CSVImportForm()  # Создаем новую чистую форму
+                return render(request, 'subscribers/import_csv.html', {
+                    'form': form,
+                    'import_id': import_history.id,
+                    'show_progress': True
+                })
                 
             except Exception as e:
                 messages.error(request, f'Произошла ошибка: {str(e)}')
@@ -164,7 +185,7 @@ def import_csv_async(request):
             csv_file = request.FILES.get('csv_file')
             delimiter = request.POST.get('delimiter', ',')
             encoding = request.POST.get('encoding', 'utf-8')
-            has_header = request.POST.get('has_header') == 'true'
+            # has_header убран - теперь всегда пропускаем первую строку если она невалидна
             
             if not csv_file:
                 return JsonResponse({'success': False, 'error': 'Файл не найден'})
@@ -184,7 +205,7 @@ def import_csv_async(request):
                 file_size=csv_file.size,
                 delimiter=delimiter,
                 encoding=encoding,
-                has_header=has_header,
+                has_header=False,  # Всегда False - первая строка пропускается автоматически если невалидна
                 created_by=request.user,
                 status='uploading',
                 phase='uploading',
@@ -215,7 +236,7 @@ def import_csv_async(request):
                         'file_size': csv_file.size,
                         'delimiter': delimiter,
                         'encoding': encoding,
-                        'has_header': has_header,
+                        'has_header': False,  # Всегда False - первая строка пропускается автоматически если невалидна
                         'mode': 'async-init'
                     }
                 )

@@ -197,7 +197,7 @@ USER_ACTION_LOG_RETENTION_DAYS = 90  # Сколько дней храним ло
 
 # Добавьте в конец settings.py
 # Путь к файлу логов ошибок задаётся переменной окружения ERROR_LOG_FILE
-# Если не задана — используем BASE_DIR/logs/errors.log
+# Если не задана — используем BASE_DIR/logfiles/errors.log
 ERROR_LOG_FILE = os.environ.get('ERROR_LOG_FILE')
 if not ERROR_LOG_FILE:
     ERROR_LOG_FILE = str(BASE_DIR / 'logfiles' / 'errors.log')
@@ -210,6 +210,21 @@ _error_dir = os.path.dirname(ERROR_LOG_FILE)
 if _error_dir:
     try:
         os.makedirs(_error_dir, exist_ok=True)
+    except Exception:
+        pass
+
+# Путь к основному django-логу (INFO и выше)
+# Используем переменную окружения DJANGO_LOG_FILE или BASE_DIR/logs/django.log по умолчанию
+DJANGO_LOG_FILE = os.environ.get('DJANGO_LOG_FILE')
+if not DJANGO_LOG_FILE:
+    DJANGO_LOG_FILE = str(BASE_DIR / 'logfiles' / 'django.log')
+elif not os.path.isabs(DJANGO_LOG_FILE):
+    DJANGO_LOG_FILE = str((BASE_DIR / DJANGO_LOG_FILE).resolve())
+
+_django_dir = os.path.dirname(DJANGO_LOG_FILE)
+if _django_dir:
+    try:
+        os.makedirs(_django_dir, exist_ok=True)
     except Exception:
         pass
 
@@ -233,8 +248,11 @@ LOGGING = {
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/django.log',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': DJANGO_LOG_FILE,
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'encoding': 'utf-8',
             'formatter': 'verbose',
         },
         'error_file': {
@@ -243,6 +261,7 @@ LOGGING = {
             'filename': ERROR_LOG_FILE,
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
+            'encoding': 'utf-8',
             'formatter': 'error',
         },
         'console': {

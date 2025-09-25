@@ -68,7 +68,7 @@
                                     </td>
                                     <td>{{ import_item.records_count }}</td>
                                     <td>
-                                        <a href="{% url 'subscribers:import_detail' import_item.id %}" class="btn btn-sm btn-outline-primary">
+                                        <a href="{% url 'subscribers:import_csv' %}?import_id={{ import_item.id }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye"></i> Детали
                                         </a>
                                     </td>

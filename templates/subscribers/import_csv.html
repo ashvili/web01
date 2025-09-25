@@ -55,11 +55,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="form-check my-3">
-                            {{ form.has_header }}
-                            <label class="form-check-label" for="{{ form.has_header.id_for_label }}">{% trans "Первая строка содержит заголовки" %}</label>
-                            <div class="form-text">{% trans "Отметьте, если первая строка файла содержит названия колонок" %}</div>
-                        </div>
+                        <!-- has_header убран - теперь всегда пропускаем первую строку если она невалидна -->
                         <div class="text-end">
                             <button type="submit" id="import-btn" class="btn btn-primary">
                                 <i class="bi bi-file-earmark-arrow-up"></i> {% trans "Импортировать" %}
@@ -81,7 +77,7 @@
                     </form>
 
                     <!-- Блок прогресса импорта (покажется после старта) -->
-                    <div id="import-progress-card" class="mt-4" style="display:none;">
+                    <div id="import-progress-card" class="mt-4" {% if not show_progress %}style="display:none;"{% endif %} data-import-id="{% if import_id %}{{ import_id }}{% else %}{% endif %}">
                         <div class="card">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                 <h5 class="card-title mb-0">{% trans "Прогресс импорта" %}</h5>
@@ -199,7 +195,7 @@
                         <li class="list-group-item">{% trans "Файл должен быть в формате CSV" %}</li>
                         <li class="list-group-item">{% trans "Структура должна соответствовать модели абонентов" %}</li>
                         <li class="list-group-item">{% trans "Каждая запись начинается с числового ID" %}</li>
-                        <li class="list-group-item">{% trans "Отметьте «первая строка заголовок», если это так" %}</li>
+                        <li class="list-group-item">{% trans "Первая строка автоматически пропускается если содержит заголовки" %}</li>
                     </ul>
                     <p class="mb-2">{% trans "Порядок полей:" %}</p>
                     <ol class="list-group list-group-numbered small">
@@ -567,6 +563,17 @@ document.addEventListener('DOMContentLoaded', function() {
             this.innerHTML = `<i class="bi bi-exclamation-triangle"></i> {% trans "Показать ошибки" %} (<span id="errors-count">0</span>)`;
         }
     });
+
+    // Автоматически запускаем отслеживание прогресса, если есть активный импорт
+    const importIdFromData = progressCard.getAttribute('data-import-id');
+    if (importIdFromData) {
+        currentImportId = parseInt(importIdFromData);
+        // Скрываем форму загрузки и показываем блок прогресса
+        form.style.display = 'none';
+        uploadProgress.style.display = 'none';
+        progressCard.style.display = 'block';
+        poll();
+    }
 
     // Обработчик для кнопки "Новый импорт"
     newImportBtn?.addEventListener('click', function(){

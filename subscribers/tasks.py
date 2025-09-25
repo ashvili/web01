@@ -589,17 +589,17 @@ def _process_record_row(parsed, import_history: ImportHistory, created_failed_ac
             validation_errors.append(f"Номер слишком длинный: {len(parsed['number'])} символов (максимум 20)")
             parsed['number'] = parsed['number'][:20]  # Обрезаем до максимальной длины
             
-        if parsed.get('last_name') and len(parsed['last_name']) > 100:
-            validation_errors.append(f"Фамилия слишком длинная: {len(parsed['last_name'])} символов (максимум 100)")
-            parsed['last_name'] = parsed['last_name'][:100]
+        if parsed.get('last_name') and len(parsed['last_name']) > 255:
+            validation_errors.append(f"Фамилия слишком длинная: {len(parsed['last_name'])} символов (максимум 255)")
+            parsed['last_name'] = parsed['last_name'][:255]
             
-        if parsed.get('first_name') and len(parsed['first_name']) > 100:
-            validation_errors.append(f"Имя слишком длинное: {len(parsed['first_name'])} символов (максимум 100)")
-            parsed['first_name'] = parsed['first_name'][:100]
+        if parsed.get('first_name') and len(parsed['first_name']) > 255:
+            validation_errors.append(f"Имя слишком длинное: {len(parsed['first_name'])} символов (максимум 255)")
+            parsed['first_name'] = parsed['first_name'][:255]
             
-        if parsed.get('middle_name') and len(parsed['middle_name']) > 100:
-            validation_errors.append(f"Отчество слишком длинное: {len(parsed['middle_name'])} символов (максимум 100)")
-            parsed['middle_name'] = parsed['middle_name'][:100]
+        if parsed.get('middle_name') and len(parsed['middle_name']) > 255:
+            validation_errors.append(f"Отчество слишком длинное: {len(parsed['middle_name'])} символов (максимум 255)")
+            parsed['middle_name'] = parsed['middle_name'][:255]
             
         if parsed.get('imsi') and len(parsed['imsi']) > 50:
             validation_errors.append(f"IMSI слишком длинный: {len(parsed['imsi'])} символов (максимум 50)")
@@ -788,14 +788,48 @@ def _try_parse_csv_line(line, delimiter):
     try:
         import csv
         import io
-        # Очищаем строку от лишних пробелов перед парсингом
-        cleaned_line = _clean_line_for_combining(line)
-        # Удаляем NUL, которые ломают парсер/вставку
-        cleaned_line = cleaned_line.replace('\x00', ' ')
+        
+        # Очищаем строку от NUL символов
+        cleaned_line = line.replace('\x00', ' ')
+        
+        # Используем более гибкий парсер CSV
         csv_io = io.StringIO(cleaned_line)
         reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        return next(reader, None)
-    except Exception:
+        row = next(reader, None)
+        
+        if row:
+            # Обрабатываем NULL значения - заменяем на пустые строки
+            processed_row = []
+            for field in row:
+                if field and field.upper() == 'NULL':
+                    processed_row.append('')
+                else:
+                    processed_row.append(field)
+            
+            return processed_row
+        
+        # Если не удалось распарсить, пробуем fallback
+        cleaned_line = _clean_line_for_combining(line)
+        csv_io = io.StringIO(cleaned_line)
+        reader = csv.reader(csv_io, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        fallback_row = next(reader, None)
+        
+        if fallback_row:
+            # Обрабатываем NULL значения в fallback
+            processed_row = []
+            for field in fallback_row:
+                if field and field.upper() == 'NULL':
+                    processed_row.append('')
+                else:
+                    processed_row.append(field)
+            
+            return processed_row
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"[ERROR] Ошибка парсинга CSV строки: {str(e)}")
+        logger.error(f"[ERROR] Проблемная строка: {line[:200]}")
         return None
 
 # Старые функции удалены - теперь используется новый алгоритм с предпросмотром
@@ -823,6 +857,8 @@ def _try_process_combined_line(combined_line, logical_row_index, delimiter, impo
         # Проверяем, что есть достаточно полей
         if len(row_values) < 8:
             logger.error(f"[ERROR] Недостаточно полей: {len(row_values)} < 8")
+            logger.error(f"[ERROR] Проблемная строка: {combined_line}")
+            logger.error(f"[ERROR] Распарсенные поля: {row_values}")
             return False, None
         
         # Количество полей OK
@@ -869,34 +905,46 @@ def _try_process_combined_line(combined_line, logical_row_index, delimiter, impo
 def _parse_line_to_record(row_values, row_count, errors):
     """Преобразование массива строк в словарь полей."""
     try:
+        # Мягче относимся к количеству полей: для старых выгрузок может быть 10 полей
         if len(row_values) < 8:
-            errors.append(f"Строка {row_count}: неверное количество полей ({len(row_values)})")
+            error_msg = f"Строка {row_count}: неверное количество полей ({len(row_values)})"
+            errors.append(error_msg)
+            logger.error(f"[ERROR] {error_msg}")
+            logger.error(f"[ERROR] Проблемная строка: {row_values}")
             return None
+        # Функция для безопасной обработки полей с NULL
+        def safe_field(value, default=None):
+            if not value or value.upper() == 'NULL':
+                return default if default is not None else ''
+            return _clean_line_for_combining(value)
+        
         original_id = None
-        original_id_str = _clean_line_for_combining(row_values[0]) if row_values[0] else None
+        original_id_str = safe_field(row_values[0]) if len(row_values) > 0 else None
         if original_id_str:
             try:
                 original_id = int(original_id_str)
             except ValueError:
                 errors.append(f"Некорректный ID в строке {row_count}: {original_id_str}")
-        number = _clean_line_for_combining(row_values[1]) if len(row_values) > 1 else ""
-        last_name = _clean_line_for_combining(row_values[2]) if len(row_values) > 2 else ""
-        first_name = _clean_line_for_combining(row_values[3]) if len(row_values) > 3 else ""
-        middle_name = _clean_line_for_combining(row_values[4]) if len(row_values) > 4 else None
-        address = _clean_line_for_combining(row_values[5]) if len(row_values) > 5 else None
-        memo1 = _clean_line_for_combining(row_values[6]) if len(row_values) > 6 else None
-        memo2 = _clean_line_for_combining(row_values[7]) if len(row_values) > 7 else None
-        birth_place = _clean_line_for_combining(row_values[8]) if len(row_values) > 8 else None
-        imsi = _clean_line_for_combining(row_values[10]) if len(row_values) > 10 else None
+        
+        number = safe_field(row_values[1], "") if len(row_values) > 1 else ""
+        last_name = safe_field(row_values[2]) if len(row_values) > 2 else None
+        first_name = safe_field(row_values[3]) if len(row_values) > 3 else None
+        middle_name = safe_field(row_values[4]) if len(row_values) > 4 else None
+        address = safe_field(row_values[5]) if len(row_values) > 5 else None
+        memo1 = safe_field(row_values[6]) if len(row_values) > 6 else None
+        memo2 = safe_field(row_values[7]) if len(row_values) > 7 else None
+        birth_place = safe_field(row_values[8]) if len(row_values) > 8 else None
+        # Индексы 9 и 10: birth_date и imsi (если выгрузка без birth_place, сдвиг может отличаться)
+        imsi = safe_field(row_values[10]) if len(row_values) > 10 else (
+            safe_field(row_values[9]) if len(row_values) > 9 and (row_values[9].isdigit() and len(row_values[9]) >= 10) else None
+        )
 
         # Дата рождения
         birth_date = None
-        if len(row_values) > 9 and row_values[9] and _clean_line_for_combining(row_values[9]):
+        if len(row_values) > 9 and row_values[9]:
             from datetime import datetime, date
-            birth_date_str = _clean_line_for_combining(row_values[9])
-            if birth_date_str.upper() == 'NULL':
-                birth_date = None
-            else:
+            birth_date_str = safe_field(row_values[9])
+            if birth_date_str and birth_date_str.upper() != 'NULL':
                 if ' ' in birth_date_str:
                     date_part = birth_date_str.split(' ')[0]
                 else:
@@ -925,15 +973,17 @@ def _parse_line_to_record(row_values, row_count, errors):
                         except ValueError:
                             errors.append(f"Не удалось разобрать дату '{birth_date_str}' в строке {row_count}")
 
-        if not last_name or not first_name:
-            errors.append(f"Строка {row_count}: отсутствуют обязательные поля (фамилия или имя)")
-            return None
+        # Разрешаем пустые ФИО: в проде встречаются, заполним плейсхолдерами
+        if not last_name:
+            last_name = None
+        if not first_name:
+            first_name = None
 
         return {
             'original_id': original_id,
             'number': number,
-            'last_name': last_name,
-            'first_name': first_name,
+            'last_name': last_name or '',
+            'first_name': first_name or '',
             'middle_name': middle_name,
             'address': address,
             'memo1': memo1,
@@ -946,265 +996,154 @@ def _parse_line_to_record(row_values, row_count, errors):
         errors.append(f"Ошибка при обработке строки {row_count}: {str(e)}")
         return None
 
-def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, has_header, import_history, processed_rows_start):
+def _process_csv_lines_with_smart_joining(file_path, delimiter, encoding, import_history, processed_rows_start):
     """
-    Обрабатывает CSV файл с умным склеиванием разбитых строк.
-    Использует предпросмотр следующей строки для принятия решения о склеивании.
-    
+    Потоковая обработка CSV без загрузки всего файла в память
+    с «умным» склеиванием строк.
+
     Returns:
         (created_count, failed_count, last_processed_row)
     """
     created_count = 0
     failed_count = 0
     logical_row_index = processed_rows_start
-    
-    last_valid_line = None  # Последняя строка с правильным полем
-    
-    with file_path.open('r', encoding=encoding, errors='ignore') as fh:
-        import_history.phase = 'processing'
-        import_history.save()
+
+    file_size = file_path.stat().st_size
+
+    import_history.phase = 'processing'
+    import_history.save(update_fields=['phase'])
+
+    def _read_next_non_empty(fh):
+        while True:
+            raw = fh.readline()
+            if not raw:
+                return None
+            line = _clean_line_for_combining(raw.rstrip('\n\r'))
+            if line:
+                return line
+
+    with file_path.open('r', encoding=encoding, errors='ignore', newline='') as fh:
+        # Читаем первую строку
+        current_line = _read_next_non_empty(fh)
+        is_first_line = True
         
-        # Читаем все строки сразу для возможности предпросмотра
-        all_lines = [line.rstrip('\n\r') for line in fh.readlines()]
-        
-        # Получаем размер файла для расчета прогресса
-        file_size = file_path.stat().st_size
-        total_lines = len(all_lines)
-        
-        # Файл прочитан
-        # Настройки: delimiter='{delimiter}', encoding='{encoding}', has_header={has_header}
-        # Начинаем обработку с позиции {processed_rows_start}
-        
-        physical_line_idx = 0
-        i = 0
-        
-        while i < len(all_lines):
-            # Heartbeat и проверка отмены каждые 10 строк
-            if logical_row_index % 10 == 0:
+        while current_line is not None:
+            if logical_row_index % 500 == 0 and logical_row_index != processed_rows_start:
                 import_history.last_heartbeat_at = timezone.now()
-                import_history.save(update_fields=['last_heartbeat_at'])
-                
-                # Частая проверка отмены
-                import_history.refresh_from_db(fields=['cancel_requested'])
+                # Обновляем счетчики в базе данных
+                import_history.records_created = created_count
+                import_history.records_failed = failed_count
+                import_history.processed_rows = logical_row_index
+                import_history.save(update_fields=['last_heartbeat_at', 'records_created', 'records_failed', 'processed_rows'])
+                import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
                 if import_history.cancel_requested:
-                    logger.info(f"[STOP] Импорт {import_history.id} отменен пользователем во время обработки")
+                    logger.info(f"[STOP] Импорт {import_history.id} отменен пользователем")
                     import_history.status = 'cancelled'
                     import_history.stop_reason = 'Отмена пользователем'
                     import_history.phase = 'cancelled'
                     import_history.progress_percent = 0
                     import_history.save()
-                    # Очищаем временную таблицу
                     _cleanup_temp_table(import_history.temp_table_name)
                     return created_count, failed_count, logical_row_index
+                if import_history.pause_requested:
+                    logger.info(f"Импорт {import_history.id} поставлен на паузу пользователем")
+                    import_history.status = 'paused'
+                    import_history.stop_reason = 'Пауза пользователем'
+                    import_history.save()
+                    while True:
+                        import time
+                        time.sleep(0.5)
+                        import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
+                        if import_history.cancel_requested:
+                            logger.info(f"[STOP] Импорт {import_history.id} отменен во время паузы")
+                            import_history.status = 'cancelled'
+                            import_history.stop_reason = 'Отмена пользователем'
+                            import_history.phase = 'cancelled'
+                            import_history.progress_percent = 0
+                            import_history.save()
+                            _cleanup_temp_table(import_history.temp_table_name)
+                            return created_count, failed_count, logical_row_index
+                        if not import_history.pause_requested:
+                            logger.info(f"Импорт {import_history.id} возобновлен после паузы")
+                            import_history.status = 'processing'
+                            import_history.stop_reason = None
+                            import_history.save()
+                            break
 
-            # Управление: пауза / отмена (основная проверка)
-            import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
-            
-            if import_history.cancel_requested:
-                logger.info(f"[STOP] Импорт {import_history.id} отменен пользователем")
-                import_history.status = 'cancelled'
-                import_history.stop_reason = 'Отмена пользователем'
-                import_history.phase = 'cancelled'
-                import_history.progress_percent = 0
-                import_history.save()
-                # Очищаем временную таблицу
-                _cleanup_temp_table(import_history.temp_table_name)
-                return created_count, failed_count, logical_row_index
-                
-            if import_history.pause_requested:
-                logger.info(f"Импорт {import_history.id} поставлен на паузу пользователем")
-                import_history.status = 'paused'
-                import_history.stop_reason = 'Пауза пользователем'
-                import_history.save()
-                # Ожидаем снятия паузы
-                while True:
-                    import_history.refresh_from_db(fields=['pause_requested', 'cancel_requested'])
-                    if import_history.cancel_requested:
-                        logger.info(f"[STOP] Импорт {import_history.id} отменен во время паузы")
-                        import_history.status = 'cancelled'
-                        import_history.stop_reason = 'Отмена пользователем'
-                        import_history.phase = 'cancelled'
-                        import_history.progress_percent = 0
-                        import_history.save()
-                        # Очищаем временную таблицу
-                        _cleanup_temp_table(import_history.temp_table_name)
-                        return created_count, failed_count, logical_row_index
-                    if not import_history.pause_requested:
-                        logger.info(f"Импорт {import_history.id} возобновлен после паузы")
-                        import_history.status = 'processing'
-                        import_history.stop_reason = None
-                        import_history.save()
-                        break
-                    import time
-                    time.sleep(0.5)
-            
-            current_line = _clean_line_for_combining(all_lines[i])
-            physical_line_idx = i + 1  # Номер строки в файле (1-based)
-            
-            # Пропускаем заголовок
-            if physical_line_idx == 1 and has_header:
-                i += 1
-                continue
-                
-            # Пропускаем пустые строки
-            if not current_line:
-                i += 1
-                continue
-            
-            # Проверяем, является ли текущая строка валидной (ID + телефонный номер)
-            is_current_valid = _is_valid_line(current_line, delimiter)
-            
-            # ОТЛАДКА: Показываем текущую обрабатываемую строку
-            # === ОБРАБОТКА СТРОКИ {physical_line_idx} ===
-            # Обработка строки {physical_line_idx}, валидна: {is_current_valid}
-            
-            if is_current_valid:
-                # Текущая строка валидная - сохраняем как последнюю валидную
-                last_valid_line = current_line
-                # Начинаем обработку валидной строки
-                
-                # Смотрим следующие строки для склеивания
-                combined_line = current_line
-                lines_to_combine = [current_line]
-                j = i + 1
-                next_valid_line = None
-                next_valid_line_index = None
-                
-                # Ищем следующую валидную строку или достигаем конца файла
-                while j < len(all_lines):
-                    next_line = _clean_line_for_combining(all_lines[j])
-                    
-                    # Пропускаем пустые строки
-                    if not next_line:
-                        j += 1
-                        continue
-                    
-                    is_next_valid = _is_valid_line(next_line, delimiter)
-                    
-                    # Проверка следующей строки
-                    # Следующая строка {j}
-                    
-                    if is_next_valid:
-                        # Следующая строка валидная - прекращаем склеивание
-                        next_valid_line = next_line
-                        next_valid_line_index = j
-                        # Следующая строка валидна - прекращаем склеивание
-                        break
-                    else:
-                        # Следующая строка не валидная - добавляем к текущей
-                        # Очищаем объединенную строку от лишних пробелов
-                        combined_line = _clean_line_for_combining(combined_line + " " + next_line)
-                        lines_to_combine.append(next_line)
-                        # Склеиваем строку {j}
-                        # Объединенная строка обработана
-                        j += 1
-                
-                # Итоговое объединение: {len(lines_to_combine)} строк
-                # Финальная строка обработана
-                
-                # Пытаемся обработать объединенную строку
-                logical_row_index += 1
-                if logical_row_index > processed_rows_start:
-                    # Обработка записи {logical_row_index}
-                    
-                    success, actual_id = _try_process_combined_line(
-                        combined_line, logical_row_index, delimiter, import_history
-                    )
-                    
-                    if success:
-                        created_count += 1
-                        # Запись {logical_row_index} успешно обработана
-                    else:
-                        failed_count += 1
-                        logger.error(f"[ERROR] Запись {logical_row_index} не удалось обработать")
-                        
-                        # Записываем ошибку с подробными исходными данными
-                        raw_data_lines = []
-                        
-                        # Записываем строки, начиная с последней валидной строки (если она отличается от текущей)
-                        if last_valid_line and last_valid_line != current_line:
-                            raw_data_lines.append(f"Последняя валидная строка: {last_valid_line}")
-                        
-                        # Записываем все строки, которые пытались склеить
-                        for idx, line in enumerate(lines_to_combine):
-                            if idx == 0:
-                                raw_data_lines.append(f"Начальная строка (с валидным ID): {line}")
-                            else:
-                                raw_data_lines.append(f"Продолжение строки {idx}: {line}")
-                        
-                        # Добавляем следующую валидную строку, если она есть
-                        if next_valid_line:
-                            raw_data_lines.append(f"Следующая валидная строка: {next_valid_line}")
-                        
-                        # Добавляем результат склеивания
-                        raw_data_lines.append(f"Результат склеивания: {combined_line}")
-                        
-                        # Добавляем диагностическую информацию
-                        row_values = _try_parse_csv_line(combined_line, delimiter)
-                        if row_values:
-                            raw_data_lines.append(f"Количество полей после парсинга: {len(row_values)}")
-                            if len(row_values) > 0:
-                                raw_data_lines.append(f"Первое поле: '{row_values[0]}'")
-                        else:
-                            raw_data_lines.append("Не удалось распарсить как CSV")
-                        
-                        # Формируем финальный текст для raw_data
-                        final_raw_data = "\n".join(raw_data_lines)
-                        raw_data_size = len(final_raw_data)
-                        
-                        # Логируем размер данных для отладки
-                        logger.info(f"[STATS] Размер raw_data для ошибки: {raw_data_size} символов")
-                        if raw_data_size > 4000:
-                            logger.warning(f"[WARNING] Большой размер raw_data: {raw_data_size} символов (близко к лимиту 5000)")
-                        
-                        # Обрезаем до лимита, если необходимо
-                        if raw_data_size > 5000:
-                            final_raw_data = final_raw_data[:5000]
-                            logger.warning(f"[WARNING] raw_data обрезан с {raw_data_size} до 5000 символов")
-                        
-                        ImportError.objects.create(
-                            import_history=import_history,
-                            import_session_id=import_history.import_session_id,
-                            row_index=logical_row_index,
-                            message="Не удалось восстановить разбитую запись",
-                            raw_data=final_raw_data
-                        )
-                    
-                    # Обновляем прогресс на основе обработанных строк
-                    import_history.processed_rows = logical_row_index
-                    import_history.records_created = created_count
-                    import_history.records_failed = failed_count
-                    
-                    # Прогресс по количеству обработанных строк от общего количества строк
-                    if total_lines > 0:
-                        pct = int((physical_line_idx / total_lines) * 100)
-                        import_history.progress_percent = min(pct, 100)
-                    
-                    # Обновляем records_count как количество обработанных записей
-                    import_history.records_count = logical_row_index
-                    
-                    if logical_row_index % 10 == 0:
-                        import_history.save()
-                
-                # Переходим к следующей строке
-                if next_valid_line_index is not None:
-                    # У нас есть следующая валидная строка - переходим к ней
-                    i = next_valid_line_index
-                    # Переходим к валидной строке {i}
+            # Специальная обработка первой строки - если невалидна, просто пропускаем без ошибки
+            if not _is_valid_line(current_line, delimiter):
+                if is_first_line:
+                    # Первая строка невалидна - скорее всего заголовок, просто пропускаем
+                    logger.info(f"[SKIP] Первая строка пропущена (вероятно заголовок): {current_line[:100]}")
+                    current_line = _read_next_non_empty(fh)
+                    is_first_line = False
+                    continue
                 else:
-                    # Достигли конца файла - переходим к j (конец файла)
-                    i = j
-                    # Достигли конца файла, переходим к позиции {i}
-                
-                # ================================================
-            else:
-                # Текущая строка не валидная - пропускаем (такого не должно быть при правильной логике)
-                logger.warning(f"[WARNING] Строка {physical_line_idx} не валидна - пропускаем")
-                i += 1
-    
-    # Обработка завершена
-    logger.info(f"[STATS] Итоги: создано={created_count}, ошибок={failed_count}, обработано строк={logical_row_index}")
-    # ================================================
+                    # Обычная строка невалидна - создаем ошибку
+                    logger.error(f"[ERROR] Невалидная строка на позиции {logical_row_index + 1}: {current_line[:200]}")
+                    failed_count += 1
+                    ImportError.objects.create(
+                        import_history=import_history,
+                        import_session_id=import_history.import_session_id,
+                        row_index=logical_row_index + 1,
+                        message="Невалидная строка (нет ID/номера)",
+                        raw_data=current_line[:5000],
+                    )
+                    current_line = _read_next_non_empty(fh)
+                    continue
+
+            combined_line = current_line
+            while True:
+                pos = fh.tell()
+                nxt = _read_next_non_empty(fh)
+                if nxt is None:
+                    break
+                if _is_valid_line(nxt, delimiter):
+                    fh.seek(pos)
+                    break
+                combined_line = _clean_line_for_combining(combined_line + " " + nxt)
+
+            logical_row_index += 1
+            
+            # Обрабатываем строку только если это не первая строка или если она валидна
+            if logical_row_index > processed_rows_start:
+                success, _ = _try_process_combined_line(
+                    combined_line, logical_row_index, delimiter, import_history
+                )
+                if success:
+                    created_count += 1
+                else:
+                    failed_count += 1
+                    logger.error(f"[ERROR] Не удалось обработать строку {logical_row_index}: {combined_line[:200]}")
+                    ImportError.objects.create(
+                        import_history=import_history,
+                        import_session_id=import_history.import_session_id,
+                        row_index=logical_row_index,
+                        message="Не удалось обработать объединённую запись",
+                        raw_data=combined_line[:5000],
+                    )
+            
+            # Сбрасываем флаг первой строки после обработки
+            is_first_line = False
+
+            try:
+                if logical_row_index % 200 == 0:
+                    position = fh.tell()
+                    percent = int((position / max(1, file_size)) * 100)
+                    if percent != import_history.progress_percent:
+                        import_history.progress_percent = min(100, max(0, percent))
+                        import_history.processed_rows = logical_row_index
+                        import_history.save(update_fields=['progress_percent', 'processed_rows'])
+            except Exception:
+                pass
+
+            current_line = _read_next_non_empty(fh)
+
+    # Финальное обновление счетчиков
+    import_history.records_created = created_count
+    import_history.records_failed = failed_count
+    import_history.processed_rows = logical_row_index
+    import_history.save(update_fields=['records_created', 'records_failed', 'processed_rows'])
     
     return created_count, failed_count, logical_row_index
 
@@ -1317,7 +1256,7 @@ def process_csv_import_stream(import_history_id: int) -> None:
 
         delimiter = import_history.delimiter
         encoding = import_history.encoding or 'utf-8'
-        has_header = import_history.has_header
+        # has_header убран - теперь всегда пропускаем первую строку если она невалидна
 
         # Инициализируем прогресс
         import_history.records_count = 0  # Будем считать по мере обработки
@@ -1377,7 +1316,7 @@ def process_csv_import_stream(import_history_id: int) -> None:
         # Используем новую логику с умным склеиванием строк
         try:
             created_count, failed_count, logical_row_index = _process_csv_lines_with_smart_joining(
-                file_path, delimiter, encoding, has_header, import_history, processed_rows_start
+                file_path, delimiter, encoding, import_history, processed_rows_start
             )
             
             # Обновляем финальную статистику
