@@ -81,24 +81,45 @@ class ProfileView(LoginRequiredMixin, View):
             profile_form = UserProfileForm(request.POST, instance=request.user.profile, user=request.user, initial=initial_data)
             password_form = PasswordChangeForm(request.user)
             
+            # Отладочная информация
+            print(f"DEBUG: Form data: {request.POST}")
+            print(f"DEBUG: Form is valid: {profile_form.is_valid()}")
+            if not profile_form.is_valid():
+                print(f"DEBUG: Form errors: {profile_form.errors}")
+            
             if profile_form.is_valid():
-                profile_form.save()
-                messages.success(request, 'Профиль успешно обновлен')
-                return redirect('accounts:profile')
+                try:
+                    profile_form.save()
+                    messages.success(request, 'Профиль успешно обновлен')
+                    return redirect('accounts:profile')
+                except Exception as e:
+                    print(f"DEBUG: Exception during save: {str(e)}")
+                    messages.error(request, f'Ошибка при сохранении профиля: {str(e)}')
             else:
                 # Если форма невалидна, показываем ошибки
-                messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
+                error_messages = []
+                for field, errors in profile_form.errors.items():
+                    for error in errors:
+                        error_messages.append(f"{profile_form.fields[field].label}: {error}")
+                messages.error(request, 'Пожалуйста, исправьте ошибки в форме: ' + '; '.join(error_messages))
         elif 'password_submit' in request.POST:
             profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
             password_form = PasswordChangeForm(request.user, request.POST)
             
             if password_form.is_valid():
-                password_form.save()
-                messages.success(request, 'Пароль успешно изменен')
-                return redirect('accounts:profile')
+                try:
+                    password_form.save()
+                    messages.success(request, 'Пароль успешно изменен')
+                    return redirect('accounts:profile')
+                except Exception as e:
+                    messages.error(request, f'Ошибка при изменении пароля: {str(e)}')
             else:
                 # Если форма невалидна, показываем ошибки
-                messages.error(request, 'Пожалуйста, исправьте ошибки в форме пароля')
+                error_messages = []
+                for field, errors in password_form.errors.items():
+                    for error in errors:
+                        error_messages.append(f"{password_form.fields[field].label}: {error}")
+                messages.error(request, 'Пожалуйста, исправьте ошибки в форме пароля: ' + '; '.join(error_messages))
         else:
             profile_form = UserProfileForm(instance=request.user.profile, user=request.user, initial=initial_data)
             password_form = PasswordChangeForm(request.user)

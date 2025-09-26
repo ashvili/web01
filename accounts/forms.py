@@ -115,15 +115,13 @@ class UserProfileForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['user_type', 'department', 'position', 'phone_number']
+        fields = ['department', 'position', 'phone_number']
         labels = {
-            'user_type': _('Тип пользователя'),
             'department': _('Отдел'),
             'position': _('Должность'),
             'phone_number': _('Телефон')
         }
         widgets = {
-            'user_type': forms.Select(attrs={'class': 'form-control'}),
             'department': forms.TextInput(attrs={'class': 'form-control'}),
             'position': forms.TextInput(attrs={'class': 'form-control'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control'})
@@ -138,6 +136,37 @@ class UserProfileForm(forms.ModelForm):
             self.fields['first_name'].initial = self.user.first_name
             self.fields['last_name'].initial = self.user.last_name
             self.fields['email'].initial = self.user.email
+    
+    def clean_email(self):
+        """Валидация email"""
+        email = self.cleaned_data.get('email')
+        if email:
+            # Проверяем, что email уникален среди всех пользователей, кроме текущего
+            if self.user and self.user.email == email:
+                return email
+            if User.objects.filter(email=email).exclude(pk=self.user.pk if self.user else None).exists():
+                raise forms.ValidationError(_("Пользователь с таким email уже существует"))
+        return email
+    
+    def clean_first_name(self):
+        """Валидация имени"""
+        first_name = self.cleaned_data.get('first_name', '')
+        return first_name.strip()
+    
+    def clean_last_name(self):
+        """Валидация фамилии"""
+        last_name = self.cleaned_data.get('last_name', '')
+        return last_name.strip()
+    
+    def clean_phone_number(self):
+        """Валидация номера телефона"""
+        phone_number = self.cleaned_data.get('phone_number', '')
+        if phone_number:
+            # Убираем все нецифровые символы для проверки
+            digits_only = ''.join(filter(str.isdigit, phone_number))
+            if len(digits_only) < 7:
+                raise forms.ValidationError(_("Номер телефона должен содержать минимум 7 цифр"))
+        return phone_number
     
     def save(self, commit=True):
         """Сохраняет форму и обновляет поля пользователя"""
