@@ -1,23 +1,24 @@
 {% extends 'base.html' %}
 {% load user_permissions %}
+{% load i18n %}
 
-{% block title %}Главная - Система управления{% endblock %}
+{% block title %}{% trans "Главная - Система управления" %}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-8 mx-auto text-center">
-        <h1 class="mb-4">Система управления</h1>
+        <h1 class="mb-4">{% trans "Система управления" %}</h1>
         
         {% if user.is_authenticated %}
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Добро пожаловать, {{ user.get_full_name|default:user.username }}!</h5>
-                <p class="card-text">Вы успешно авторизованы в системе.</p>
+                <h5 class="card-title">{% trans "Добро пожаловать" %}, {{ user.get_full_name|default:user.username }}!</h5>
+                <p class="card-text">{% trans "Вы успешно авторизованы в системе." %}</p>
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                    <a href="{% url 'subscriber_search' %}" class="btn btn-primary">Поиск абонентов</a>
+                    <a href="{% url 'subscriber_search' %}" class="btn btn-primary">{% trans "Поиск абонентов" %}</a>
                     {% if user|is_admin_user %}
-                    <a href="{% url 'accounts:user_list' %}" class="btn btn-primary">Пользователи</a>
-                    <a href="{% url 'logs:list' %}" class="btn btn-info">Логи</a>
+                    <a href="{% url 'accounts:user_list' %}" class="btn btn-primary">{% trans "Пользователи" %}</a>
+                    <a href="{% url 'logs:list' %}" class="btn btn-info">{% trans "Логи" %}</a>
                     {% endif %}
                 </div>
             </div>
@@ -25,10 +26,10 @@
         {% else %}
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Добро пожаловать в систему управления!</h5>
-                <p class="card-text">Для доступа к функциям системы необходимо авторизоваться.</p>
+                <h5 class="card-title">{% trans "Добро пожаловать в систему управления!" %}</h5>
+                <p class="card-text">{% trans "Для доступа к функциям системы необходимо авторизоваться." %}</p>
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                    <a href="{% url 'accounts:login' %}" class="btn btn-primary">Войти в систему</a>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-primary">{% trans "Войти в систему" %}</a>
                 </div>
             </div>
         </div>
@@ -38,24 +39,24 @@
             <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Управление пользователями</h5>
-                        <p class="card-text">Просмотр, редактирование и управление аккаунтами.</p>
+                        <h5 class="card-title">{% trans "Управление пользователями" %}</h5>
+                        <p class="card-text">{% trans "Просмотр, редактирование и управление аккаунтами." %}</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Логи действий</h5>
-                        <p class="card-text">Мониторинг и аудит пользовательских действий.</p>
+                        <h5 class="card-title">{% trans "Логи действий" %}</h5>
+                        <p class="card-text">{% trans "Мониторинг и аудит пользовательских действий." %}</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Безопасность</h5>
-                        <p class="card-text">Двухфакторная аутентификация и контроль доступа.</p>
+                        <h5 class="card-title">{% trans "Безопасность" %}</h5>
+                        <p class="card-text">{% trans "Двухфакторная аутентификация и контроль доступа." %}</p>
                     </div>
                 </div>
             </div>

@@ -443,8 +443,12 @@ msgstr "Mantykly seýssiýalar"
 msgid "Активность"
 msgstr "Işjeňlik"
 
-msgid "Для просмотра цепочки действий откройте детали лога и перейдите по ссылке \"Цепочка\""
-msgstr "Hereketler zynjyryny görmek üçin log jikme-jiklerini açyň we \"Zynjyr\" baglanyşygyna geçiň"
+msgid ""
+"Для просмотра цепочки действий откройте детали лога и перейдите по ссылке "
+"\"Цепочка\""
+msgstr ""
+"Hereketler zynjyryny görmek üçin log jikme-jiklerini açyň we \"Zynjyr\" "
+"baglanyşygyna geçiň"
 
 msgid "Очистить устаревшие логи"
 msgstr "Köne loglary arassalamak"
@@ -740,8 +744,12 @@ msgstr "Ýerine ýetirilýär"
 msgid "Остановить импорт? Действие нельзя отменить."
 msgstr "Importy duruzmak? Bu hereketi yzyna gaýtarmak bolmaýar."
 
-msgid "Финализировать импорт? Данные из временной таблицы будут перенесены в основную таблицу. Действие нельзя отменить."
-msgstr "Importy tamamlamak? Wagtlaýyn tablisadaky maglumatlar esasy tablisaga geçiriler. Bu hereketi yzyna gaýtarmak bolmaýar."
+msgid ""
+"Финализировать импорт? Данные из временной таблицы будут перенесены в "
+"основную таблицу. Действие нельзя отменить."
+msgstr ""
+"Importy tamamlamak? Wagtlaýyn tablisadaky maglumatlar esasy tablisaga "
+"geçiriler. Bu hereketi yzyna gaýtarmak bolmaýar."
 
 msgid "Финализация..."
 msgstr "Tamamlanýar..."
@@ -807,7 +815,8 @@ msgid "Первая строка содержит заголовки"
 msgstr "Birkinji setir sarlawhalary öz içine alýar"
 
 msgid "Отметьте, если первая строка файла содержит названия колонок"
-msgstr "Eger faýlyň birkinji setiri sütünleriň atlaryny öz içine alsa, belgileň"
+msgstr ""
+"Eger faýlyň birkinji setiri sütünleriň atlaryny öz içine alsa, belgileň"
 
 msgid "Кодировка файла"
 msgstr "Faýlyň kodlamasy"
@@ -835,3 +844,39 @@ msgstr "Görkezildi"
 
 msgid "ошибок."
 msgstr "ýalňyşlyk."
+
+msgid "Добро пожаловать"
+msgstr "Hoş geldiňiz"
+
+msgid "Русский"
+msgstr "Rus"
+
+msgid "Türkmen"
+msgstr "Türkmen"
+
+msgid "Система управления. Все права защищены."
+msgstr "Dolandyryş ulgamy. Ähli hukukлар goragly."
+
+msgid "Система управления"
+msgstr "Dolandyryş ulgamy"
+
+msgid "Вы успешно авторизованы в системе."
+msgstr "Ulgama üstünlikli girdiňiz."
+
+msgid "Мониторинг и аудит пользовательских действий."
+msgstr "Ulanyjylaryň hereketlerini gözegçilik we audit."
+
+msgid "Безопасность"
+msgstr "Howpsuzlyk"
+
+msgid "Двухфакторная аутентификация и контроль доступа."
+msgstr "Iki faktorly tassyklama we girişi dolandyrmak."
+
+msgid "Управление пользователями"
+msgstr "Ulanyjylary dolandyrmak"
+
+msgid "Просмотр, редактирование и управление аккаунтами."
+msgstr "Hasaplary görmek, redaktirlemek we dolandyrmak."
+
+msgid "Логи"
+msgstr "Loglar"

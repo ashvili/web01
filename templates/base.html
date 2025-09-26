@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Система управления{% endblock %}</title>
+    <title>{% block title %}{% trans "Система управления" %}{% endblock %}</title>
     <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/bootstrap-icons/font/bootstrap-icons.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
@@ -59,7 +59,7 @@
                                         <input type="hidden" name="next" value="{% switch_language_url 'ru' %}">
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
                                             <img src="{% static 'img/flags/ru.png' %}" alt="RU" class="me-2" style="width: 20px; height: 15px;">
-                                            <span>Русский</span>
+                                            <span>{% trans "Русский" %}</span>
                                         </button>
                                     </form>
                                 </li>
@@ -70,7 +70,7 @@
                                         <input type="hidden" name="next" value="{% switch_language_url 'tk' %}">
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
                                             <img src="{% static 'img/flags/tm.png' %}" alt="TM" class="me-2" style="width: 20px; height: 15px;">
-                                            <span>Türkmen</span>
+                                            <span>{% trans "Türkmen" %}</span>
                                         </button>
                                     </form>
                                 </li>
@@ -120,7 +120,7 @@
 
     <footer class="py-3 mt-5 bg-light">
         <div class="container text-center">
-            <p class="mb-0">© {% now 'Y' %} Система управления. Все права защищены.</p>
+            <p class="mb-0">© {% now 'Y' %} {% trans "Система управления. Все права защищены." %}</p>
         </div>
     </footer>
 
