@@ -173,7 +173,7 @@ MESSAGE_TAGS = {
 
 # Настройки для авторизации
 LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'accounts:profile'
+LOGIN_REDIRECT_URL = 'subscriber_search'  # По умолчанию поиск абонентов для всех пользователей
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
 # Настройки для двухфакторной аутентификации

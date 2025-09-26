@@ -14,10 +14,8 @@
                 <h5 class="card-title">Добро пожаловать, {{ user.get_full_name|default:user.username }}!</h5>
                 <p class="card-text">Вы успешно авторизованы в системе.</p>
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                    {# Удалены все ссылки на subscribers #}
-                    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">Профиль</a>
-                    {% if user|is_admin_user %}
                     <a href="{% url 'subscriber_search' %}" class="btn btn-primary">Поиск абонентов</a>
+                    {% if user|is_admin_user %}
                     <a href="{% url 'accounts:user_list' %}" class="btn btn-primary">Пользователи</a>
                     <a href="{% url 'logs:list' %}" class="btn btn-info">Логи</a>
                     {% endif %}

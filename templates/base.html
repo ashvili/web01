@@ -22,15 +22,17 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'subscriber_search' %}">{% trans "Поиск абонентов" %}</a>
+                        </li>
                         {% if user|is_admin_user %}
-                        {# Удалены: "Абоненты" и "Импорт данных" — теперь только пользователи и логи #}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'accounts:user_list' %}">{% trans "Пользователи" %}</a>
                         </li>
                         <!-- Пункт меню для логов (видим только для администраторов) -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">
-                                <i class="bi bi-clock-history"></i> {% trans "Логи действий" %}
+                                <i class="bi bi-clock-history"></i> {% trans "Логи" %}
                             </a>
                         </li>
                         {% endif %}

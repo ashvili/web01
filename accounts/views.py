@@ -21,6 +21,15 @@ import pyotp
 from .forms import UserProfileForm, UserForm, TOTPForm, PasswordChangeForm
 from .models import UserProfile
 
+def get_redirect_after_login(user):
+    """
+    Определяет URL для редиректа после входа в зависимости от типа пользователя
+    """
+    if user.profile.is_admin():
+        return 'home'  # Администраторы идут на главную страницу
+    else:
+        return 'subscriber_search'  # Обычные пользователи идут на поиск абонентов
+
 # Импортируем API для логирования из utils напрямую
 from logs.utils import (
     log_login, 
@@ -34,7 +43,9 @@ class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'home.html'
 
     def get(self, request, *args, **kwargs):
-        # Убрал редирект на subscribers:search — теперь показывает домашнюю страницу
+        # Если пользователь не администратор, перенаправляем на поиск абонентов
+        if not request.user.profile.is_admin():
+            return redirect('subscriber_search')
         return super().get(request, *args, **kwargs)
 
 # Представление для профиля пользователя
@@ -180,7 +191,7 @@ class OtpRequiredView(View):
             # Устанавливаем флаг успешной 2FA
             request.session['otp_verified'] = True
             
-            return redirect('home')
+            return redirect(get_redirect_after_login(user))
         
         messages.error(request, 'Неверный код')
         return render(request, self.template_name)
@@ -310,7 +321,7 @@ class LoginView(View):
                     login(request, user)
                     from logs.utils import log_login  # импорт внутри метода, чтобы избежать циклических импортов
                     log_login(request, user)
-                    return redirect('home')
+                    return redirect(get_redirect_after_login(user))
         
         return render(request, self.template_name, {'form': form})
 
