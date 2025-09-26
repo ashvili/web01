@@ -22,6 +22,7 @@ from django.conf.urls.i18n import i18n_patterns
 from two_factor.urls import urlpatterns as tf_urls
 
 from accounts.views import HomeView
+from subscribers.views import search_subscribers
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,7 +30,8 @@ urlpatterns = [
 ] + i18n_patterns(
     path('', HomeView.as_view(), name='home'),
     path('accounts/', include('accounts.urls')),
-    path('subscribers/', include('subscribers.urls')),
+    path('subscribers/search/', search_subscribers, name='subscriber_search'),
+    # path('subscribers/', include('subscribers.urls')),  # Отключено: доступ к абонентам запрещён
     path('logs/', include('logs.urls')),
     path('2fa/', include(tf_urls, namespace='two_factor')),  # Изменили префикс на /2fa/ чтобы избежать конфликтов
 )

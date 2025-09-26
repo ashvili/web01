@@ -41,7 +41,7 @@ from logs.utils import (
 )
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def subscriber_list(request):
     """Представление для просмотра списка абонентов (только для администраторов)"""
     # Получение параметров фильтрации из GET запроса
@@ -75,7 +75,7 @@ def subscriber_list(request):
     })
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def import_csv(request):
     """Представление для импорта данных из CSV-файла (только для администраторов)"""
     # Проверяем, есть ли параметр import_id для показа деталей существующего импорта
@@ -175,7 +175,7 @@ def import_csv(request):
     return render(request, 'subscribers/import_csv.html', {'form': form})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 @csrf_exempt
 def import_csv_async(request):
     """Асинхронное представление для импорта данных из CSV-файла"""
@@ -259,7 +259,7 @@ def import_csv_async(request):
     return JsonResponse({'success': False, 'error': 'Метод не поддерживается'})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def import_history(request):
     """Представление для просмотра истории импорта (только для администраторов)"""
     history_list = ImportHistory.objects.all().order_by('-created_at')
@@ -272,7 +272,7 @@ def import_history(request):
     return render(request, 'subscribers/import_history.html', {'history_page': history_page})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def import_detail(request, import_id):
     """Представление для просмотра деталей импорта (только для администраторов)"""
     import_history = get_object_or_404(ImportHistory, id=import_id)
@@ -290,7 +290,8 @@ def import_detail(request, import_id):
     return render(request, 'subscribers/import_detail.html', context)
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
+@require_POST
 def import_status(request, import_id):
     """JSON-статус прогресса импорта."""
     import_history = get_object_or_404(ImportHistory, id=import_id)
@@ -320,7 +321,7 @@ def import_status(request, import_id):
     return JsonResponse(data)
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 @require_POST
 @csrf_exempt
 def import_pause(request, import_id):
@@ -331,7 +332,7 @@ def import_pause(request, import_id):
     return JsonResponse({'ok': True})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 @require_POST
 @csrf_exempt
 def import_resume(request, import_id):
@@ -376,7 +377,7 @@ def import_resume(request, import_id):
     return JsonResponse({'ok': True, 'started': False})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 @require_POST
 @csrf_exempt
 def import_cancel(request, import_id):
@@ -387,7 +388,7 @@ def import_cancel(request, import_id):
     return JsonResponse({'ok': True})
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 @require_POST
 @csrf_exempt
 def import_finalize(request, import_id):
@@ -449,7 +450,7 @@ def import_finalize(request, import_id):
         }, status=500)
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def import_errors(request, import_id):
     """Получение ошибок импорта."""
     try:
@@ -490,7 +491,7 @@ def import_errors(request, import_id):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='subscribers:search')
+@user_passes_test(is_admin, login_url='subscriber_search')
 def cleanup_archives(request):
     """Представление для ручной очистки архивных таблиц (только для администраторов)"""
     from subscribers.tasks import cleanup_old_archive_tables, list_archive_tables
@@ -536,9 +537,10 @@ def cleanup_archives(request):
         messages.error(request, f"Ошибка при очистке архивных таблиц: {result.get('error', 'Неизвестная ошибка')}")
     
     # Перенаправляем на страницу истории импорта
-    return redirect('subscribers:import_history')
+    return redirect('subscriber_search')
 
-@user_passes_test(is_admin, login_url='subscribers:search')
+@login_required
+@user_passes_test(is_admin, login_url='subscriber_search')
 def list_archives(request):
     """Представление для просмотра списка архивных таблиц (только для администраторов)"""
     from subscribers.tasks import list_archive_tables

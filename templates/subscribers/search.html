@@ -14,7 +14,7 @@
             <h5 class="mb-0">{% trans "Форма поиска" %}</h5>
         </div>
         <div class="card-body">
-            <form method="get" action="{% url 'subscribers:search' %}" id="searchForm">
+            <form method="get" action="{% url 'subscriber_search' %}" id="searchForm">
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="{{ form.phone_number.id_for_label }}" class="form-label">{{ form.phone_number.label }}</label>
@@ -117,12 +117,12 @@
                     <ul class="pagination mb-0">
                         {% if subscribers.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?{{ request.GET.urlencode }}&page=1" aria-label="В начало">
+                            <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page=1" aria-label="В начало">
                                 <span aria-hidden="true">&laquo;&laquo;</span>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ subscribers.previous_page_number }}" aria-label="Назад">
+                            <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ subscribers.previous_page_number }}" aria-label="Назад">
                                 <span aria-hidden="true">&laquo;</span>
                             </a>
                         </li>
@@ -143,7 +143,7 @@
                                     </li>
                                 {% else %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>
+                                        <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ num }}">{{ num }}</a>
                                     </li>
                                 {% endif %}
                             {% elif num == subscribers.number|add:'-3' or num == subscribers.number|add:'3' %}
@@ -155,12 +155,12 @@
 
                         {% if subscribers.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ subscribers.next_page_number }}" aria-label="Вперед">
+                            <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ subscribers.next_page_number }}" aria-label="Вперед">
                                 <span aria-hidden="true">&raquo;</span>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ subscribers.paginator.num_pages }}" aria-label="В конец">
+                            <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ subscribers.paginator.num_pages }}" aria-label="В конец">
                                 <span aria-hidden="true">&raquo;&raquo;</span>
                             </a>
                         </li>

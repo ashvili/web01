@@ -31,15 +31,11 @@ from logs.utils import (
 
 # Главная страница (администратор) или перенаправление на поиск абонентов для остальных
 class HomeView(LoginRequiredMixin, TemplateView):
-    template_name = 'accounts/home.html'
+    template_name = 'home.html'
 
     def get(self, request, *args, **kwargs):
-        # Перенаправляем на поиск абонентов
-        return redirect('subscribers:search')
-        # Если пользователь не администратор, перенаправляем на поиск абонентов
-        # if not request.user.profile.is_admin():
-        #     return redirect('subscribers:search')
-        # return super().get(request, *args, **kwargs)
+        # Убрал редирект на subscribers:search — теперь показывает домашнюю страницу
+        return super().get(request, *args, **kwargs)
 
 # Представление для профиля пользователя
 class ProfileView(LoginRequiredMixin, View):
@@ -184,7 +180,7 @@ class OtpRequiredView(View):
             # Устанавливаем флаг успешной 2FA
             request.session['otp_verified'] = True
             
-            return redirect('subscribers:search')
+            return redirect('home')
         
         messages.error(request, 'Неверный код')
         return render(request, self.template_name)
@@ -292,7 +288,7 @@ class LoginView(View):
     
     def get(self, request):
         if request.user.is_authenticated:
-            return redirect('subscribers:search')
+            return redirect('home')
         form = AuthenticationForm()
         return render(request, self.template_name, {'form': form})
     
@@ -314,7 +310,7 @@ class LoginView(View):
                     login(request, user)
                     from logs.utils import log_login  # импорт внутри метода, чтобы избежать циклических импортов
                     log_login(request, user)
-                    return redirect('subscribers:search')
+                    return redirect('home')
         
         return render(request, self.template_name, {'form': form})
 
