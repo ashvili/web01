@@ -16,7 +16,6 @@ class TOTPMiddleware:
             r'^/accounts/otp/$',  # Страница ввода кода TOTP
             r'^/accounts/login/$',  # Страница входа
             r'^/accounts/logout/$',  # Страница выхода
-            r'^/accounts/password_reset/',  # Страницы сброса пароля
             r'^/admin/',  # Административный раздел
             r'^/static/',  # Статические файлы
         ]
