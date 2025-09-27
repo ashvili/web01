@@ -291,10 +291,11 @@ def import_detail(request, import_id):
 
 @login_required
 @user_passes_test(is_admin, login_url='subscriber_search')
-@require_POST
 def import_status(request, import_id):
     """JSON-статус прогресса импорта."""
     import_history = get_object_or_404(ImportHistory, id=import_id)
+    if request.method not in ('GET', 'HEAD'):
+        return JsonResponse({'success': False, 'error': 'Метод не поддерживается'}, status=405)
     
     # Добавляем отладочную информацию
     logger.debug(f"Статус импорта {import_id}: {import_history.status}, phase: {getattr(import_history, 'phase', 'N/A')}")
