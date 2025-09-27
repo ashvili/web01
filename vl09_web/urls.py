@@ -31,7 +31,7 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('accounts/', include('accounts.urls')),
     path('subscribers/search/', search_subscribers, name='subscriber_search'),
-    # path('subscribers/', include('subscribers.urls')),  # Отключено: доступ к абонентам запрещён
+    path('subscribers/', include(('subscribers.urls', 'subscribers'), namespace='subscribers')),
     path('logs/', include('logs.urls')),
     path('2fa/', include(tf_urls, namespace='two_factor')),  # Изменили префикс на /2fa/ чтобы избежать конфликтов
 )

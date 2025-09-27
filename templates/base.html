@@ -26,9 +26,21 @@
                             <a class="nav-link" href="{% url 'subscriber_search' %}">{% trans "Поиск абонентов" %}</a>
                         </li>
                         {% if user|is_admin_user %}
+                        {% with current_url=request.resolver_match.url_name|default:'' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'accounts:user_list' %}">{% trans "Пользователи" %}</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url == 'import_csv' %}active{% endif %}" href="{% url 'subscribers:import_csv' %}">
+                                <i class="bi bi-upload"></i> {% trans "Импорт" %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url == 'import_history' or current_url == 'import_detail' or current_url == 'import_status' or current_url == 'import_resume' or current_url == 'import_pause' or current_url == 'import_cancel' or current_url == 'import_finalize' or current_url == 'import_errors' %}active{% endif %}" href="{% url 'subscribers:import_history' %}">
+                                <i class="bi bi-journal-text"></i> {% trans "История импорта" %}
+                            </a>
+                        </li>
+                        {% endwith %}
                         <!-- Пункт меню для логов (видим только для администраторов) -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.app_name == 'logs' %}active{% endif %}" href="{% url 'logs:list' %}">

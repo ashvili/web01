@@ -12,10 +12,8 @@ def is_admin(user):
     Returns:
         bool: True, если пользователь является администратором
     """
-    # print('user.profile.user_type = ', user.profile.user_type)
-    # print('user.is_superuser = ', user.is_superuser)
-    # if user.is_superuser:
-    #     return True
+    if user.is_superuser:
+        return True
     
     if hasattr(user, "profile"):
         return user.profile.user_type == 0
