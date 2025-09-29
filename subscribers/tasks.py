@@ -6,40 +6,54 @@ import re
 import threading
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from django.conf import settings
 from django.db import transaction, connection
 from django.utils import timezone
 
 from .models import Subscriber, ImportHistory, ImportError
 
+def _split_schema_name(qualified_name: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Разделяет имя вида 'schema.object' на схему и объект."""
+    if not qualified_name:
+        return None, None
+    parts = qualified_name.split('.', 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return None, parts[0]
+
+
+def _qualified_name(schema: Optional[str], name: Optional[str]) -> str:
+    if not name:
+        raise ValueError('Не указано имя объекта БД')
+    if schema:
+        return f"{connection.ops.quote_name(schema)}.{connection.ops.quote_name(name)}"
+    return connection.ops.quote_name(name)
+
+
+def _quote_db_object(full_name: Optional[str]) -> str:
+    schema, name = _split_schema_name(full_name)
+    return _qualified_name(schema, name)
+
+
 def _create_temp_table(temp_table_name):
     """Создает временную таблицу с той же структурой, что и основная таблица subscribers_subscriber"""
     logger.info(f"[BUILD] Создание временной таблицы: {temp_table_name}")
+    main_table = Subscriber._meta.db_table
+    qn = connection.ops.quote_name
+    temp_sequence = f"{temp_table_name}_id_seq"
+
     with connection.cursor() as cursor:
-        # Создаем временную таблицу точно по структуре основной таблицы
-        cursor.execute(f"""
-            CREATE TABLE {temp_table_name} (
-                id SERIAL PRIMARY KEY,
-                original_id INTEGER,
-                number VARCHAR(20),
-                last_name VARCHAR(100),
-                first_name VARCHAR(100),
-                middle_name VARCHAR(100),
-                address TEXT,
-                memo1 VARCHAR(255),
-                memo2 VARCHAR(255),
-                birth_place VARCHAR(255),
-                birth_date DATE,
-                imsi VARCHAR(50),
-                gender VARCHAR(1),
-                email VARCHAR(254),
-                is_active BOOLEAN,
-                created_at TIMESTAMP WITH TIME ZONE,
-                updated_at TIMESTAMP WITH TIME ZONE,
-                import_history_id INTEGER
-            )
-        """)
+        cursor.execute(f"CREATE TABLE {qn(temp_table_name)} (LIKE {qn(main_table)} INCLUDING ALL)")
+        # Удаляем наследованный default, чтобы привязать отдельную последовательность
+        cursor.execute(f"ALTER TABLE {qn(temp_table_name)} ALTER COLUMN id DROP DEFAULT")
+        cursor.execute(f"DROP SEQUENCE IF EXISTS {qn(temp_sequence)}")
+        cursor.execute(f"CREATE SEQUENCE {qn(temp_sequence)} START WITH 1")
+        cursor.execute(f"ALTER SEQUENCE {qn(temp_sequence)} OWNED BY {qn(temp_table_name)}.id")
+        cursor.execute(
+            f"ALTER TABLE {qn(temp_table_name)} ALTER COLUMN id SET DEFAULT nextval(%s)",
+            [temp_sequence]
+        )
     logger.info(f"[OK] Временная таблица {temp_table_name} создана успешно")
     return temp_table_name
 
@@ -80,62 +94,75 @@ def _insert_into_temp_table(temp_table_name, record_data):
     # logger.debug(f"[OK] Запись ID={record_data['original_id']} вставлена в {temp_table_name}")
 
 def _finalize_import(import_history):
-    """Финализирует импорт: архивирует основную таблицу и заменяет ее данными из временной"""
+    """Финализирует импорт: переименовывает таблицы, чтобы минимизировать простои."""
     temp_table_name = import_history.temp_table_name
-    archive_table_name = f"subscribers_subscriber_archive_{int(timezone.now().timestamp())}"
-    
-    logger.info(f"[FINISH] Начинаем финализацию импорта...")
+    if not temp_table_name:
+        raise Exception("Не указана временная таблица для финализации импорта")
+
+    main_table_name = Subscriber._meta.db_table
+    archive_table_name = f"{main_table_name}_archive_{int(timezone.now().timestamp())}"
+
+    logger.info("[FINISH] Начинаем финализацию импорта (rename strategy)...")
+    logger.info(f"[FILE] Основная таблица: {main_table_name}")
     logger.info(f"[FILE] Временная таблица: {temp_table_name}")
-    logger.info(f"📦 Архивная таблица: {archive_table_name}")
-    
-    with connection.cursor() as cursor:
-        try:
-            # 1. Создаем архивную копию основной таблицы
-            logger.info("[LIST] Создание архивной копии основной таблицы...")
-            cursor.execute(f"""
-                CREATE TABLE {archive_table_name} AS 
-                SELECT * FROM subscribers_subscriber
-            """)
-            logger.info("[OK] Архивная копия создана")
-            
-            # 2. Очищаем основную таблицу
-            logger.info("[TRASH] Очистка основной таблицы...")
-            cursor.execute("DELETE FROM subscribers_subscriber")
-            logger.info("[OK] Основная таблица очищена")
-            
-            # 3. Копируем данные из временной таблицы в основную (без поля id - оно будет сгенерировано автоматически)
-            logger.info("📤 Копирование данных из временной таблицы в основную...")
-            cursor.execute(f"""
-                INSERT INTO subscribers_subscriber (
-                    original_id, number, last_name, first_name, middle_name,
-                    address, memo1, memo2, birth_place, birth_date, imsi,
-                    gender, email, is_active, created_at, updated_at, import_history_id
-                )
-                SELECT 
-                    original_id, number, last_name, first_name, middle_name,
-                    address, memo1, memo2, birth_place, birth_date, imsi,
-                    gender, email, is_active, created_at, updated_at, import_history_id
-                FROM {temp_table_name}
-            """)
-            logger.info("[OK] Данные скопированы в основную таблицу")
-            
-            # 4. Удаляем временную таблицу
-            logger.info("[TRASH] Удаление временной таблицы...")
-            cursor.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
-            logger.info("[OK] Временная таблица удалена")
-            
-            # 5. Обновляем ImportHistory
-            import_history.archive_table_name = archive_table_name
-            import_history.temp_table_name = None
-            # Статус и фаза будут обновлены в views.py после успешной финализации
-            import_history.save()
-            
-            logger.info("[SUCCESS] Финализация импорта завершена успешно!")
-            return True
-        except Exception as e:
-            # В случае ошибки оставляем все как есть
-            logger.error(f"[ERROR] Ошибка при финализации импорта: {str(e)}")
-            raise Exception(f"Ошибка при финализации импорта: {str(e)}")
+    logger.info(f"[ARCHIVE] Новая архивная таблица: {archive_table_name}")
+
+    qn = connection.ops.quote_name
+    main_schema, main_table_only = _split_schema_name(main_table_name)
+    temp_schema, temp_table_only = _split_schema_name(temp_table_name)
+    archive_schema, archive_table_only = _split_schema_name(archive_table_name)
+
+    # Имена последовательностей
+    main_sequence_name = f"{main_table_only}_id_seq" if main_table_only else "id_seq"
+    main_sequence_qualified = _qualified_name(main_schema, main_sequence_name)
+    temp_sequence_name = f"{temp_table_only}_id_seq" if temp_table_only else "id_seq"
+    temp_sequence_qualified = _qualified_name(temp_schema, temp_sequence_name)
+    archive_sequence_name = f"{archive_table_only}_id_seq" if archive_table_only else "id_seq"
+
+    try:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                # Берём эксклюзивные блокировки, чтобы избежать конкурентного доступа
+                cursor.execute(f"LOCK TABLE {qn(main_table_name)} IN ACCESS EXCLUSIVE MODE")
+                cursor.execute(f"LOCK TABLE {qn(temp_table_name)} IN ACCESS EXCLUSIVE MODE")
+
+                # Переименовываем основную таблицу в архивную
+                logger.info("[RENAME] Основная таблица -> архив")
+                cursor.execute(f"ALTER TABLE {qn(main_table_name)} RENAME TO {qn(archive_table_name)}")
+
+                # После переименования отключаем автоинкремент у архивной таблицы, освобождаем её последовательность
+                # У архивной таблицы сохраняется последовательность, трогать её не нужно
+
+                # Переименовываем временную таблицу в основную
+                logger.info("[RENAME] Временная таблица -> основная")
+                cursor.execute(f"ALTER TABLE {qn(temp_table_name)} RENAME TO {qn(main_table_name)}")
+
+                # Привязываем последовательность к новой основной таблице и синхронизируем значения
+                cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [main_table_name])
+                main_sequence_after = cursor.fetchone()[0]
+
+                if not main_sequence_after:
+                    raise Exception("Не удалось определить последовательность для новой основной таблицы после переименования")
+
+                cursor.execute(f"SELECT COALESCE(MAX(id), 0) FROM {qn(main_table_name)}")
+                max_id = cursor.fetchone()[0] or 0
+                cursor.execute("SELECT setval(%s, %s, %s)", [main_sequence_after, max_id if max_id else 1, bool(max_id)])
+
+                cursor.execute(f"ALTER SEQUENCE {main_sequence_after} OWNED BY {qn(main_table_name)}.id")
+                cursor.execute(f"ALTER TABLE {qn(main_table_name)} ALTER COLUMN id SET DEFAULT nextval(%s)", [main_sequence_after])
+
+        # Обновляем ImportHistory вне транзакции курсора
+        import_history.archive_table_name = archive_table_name
+        import_history.temp_table_name = None
+        import_history.archived_done = True
+        import_history.save(update_fields=['archive_table_name', 'temp_table_name', 'archived_done'])
+
+        logger.info("[SUCCESS] Финализация импорта завершена успешно (таблицы переименованы)!")
+        return True
+
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[ERROR] Ошибка при финализации импорта: {str(e)}")
+        raise Exception(f"Ошибка при финализации импорта: {str(e)}")
 
 def _cleanup_temp_table(temp_table_name):
     """Удаляет временную таблицу при ошибке или отмене импорта"""
