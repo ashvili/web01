@@ -90,3 +90,20 @@ main {
         padding: 1.5rem;
     }
 } 
+
+/* Prevent copying in search results */
+.no-copy {
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.no-copy td, .no-copy th {
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+} 
